@@ -30,11 +30,11 @@ keywords=["saddle", "composition"]
 def make_url(words, join):
     if join == True:
         new_words = "+".join(words)
-        full_url="".join(["http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=400&defType=edismax&q=%22",new_words,"%22&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false"])
+        full_url="".join(["http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=1500&defType=edismax&q=%22",new_words,"%22&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false"])
         return full_url
     if join == False:
         new_words="+".join(words)
-        full_url="".join(["http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=400&defType=edismax&q=",new_words,"&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false"])
+        full_url="".join(["http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=1500&defType=edismax&q=",new_words,"&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false"])
         return full_url
 
 
@@ -66,16 +66,22 @@ raw_links.extend(soup.select('a[href*=msb]'))
 titles = []
 ids = []
 
+
+
 for l in range(len(raw_links)):
     if l % 2 == 0:
         raw_title = raw_links[l].string
-        cleaned_title = raw_title.replace(' ', '_')
-        cleaned_title = cleaned_title.replace(',','')
+        cleaned_title = raw_title.replace('\t','')
+        cleaned_title = cleaned_title.replace('\n',' ')
         cleaned_title = cleaned_title.replace('-','to')
+        cleaned_title = cleaned_title.replace(' ', '_')
+        cleaned_title = cleaned_title.replace(',','')
         cleaned_title = cleaned_title.replace('.','')
         titles.append(cleaned_title)
     else:
         ids.append(raw_links[l].string)
+
+#print(titles)
 
 
 
@@ -92,6 +98,3 @@ with open(output_file, 'a') as f:
         paper_title = titles[i]
         line = "%s,%s,%s\n" % (paper_id,query_time,paper_title)
         f.write(line)
-
-
-
