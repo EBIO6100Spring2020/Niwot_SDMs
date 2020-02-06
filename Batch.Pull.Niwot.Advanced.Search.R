@@ -27,8 +27,7 @@ study_names$V1 <- gsub(" ","_",study_names$V1)
 #create a file name to keep our pasta ID in and initialize some vectors or whatever
 infile1 <- "Pasta.Ids.txt"
 full_url <- c()
-next_file <- c()
-final_file <- c()
+final_studies <- c()
 #we also need an external iterator just in case we have any package IDs with multiple data files attached. Long
 #story there, but this works, probably.
 iter <- 1
@@ -53,10 +52,8 @@ for(i in 1:length(pids$V1)){
   if(length(dumb_id$V1)>1){
     for(j in 1:length(dumb_id$V1)){
       full_url[iter] <- paste(u_r,dumb_id$V1[j],sep="/")
-      #set up the eventual file we want, named after the package ID
-      next_file[iter] <- paste(getwd(),study_names$V1[i],sep="/")
+      final_studies[iter] <- paste(study_names$V1,j,sep=".")
       #add CSV to that final file name
-      final_file[iter] <- paste(next_file[iter],".",j,".csv",sep="")
       iter <- iter+1
     }
 
@@ -65,17 +62,17 @@ for(i in 1:length(pids$V1)){
     #create the full URL with the pasta ID separated by a slash
     full_url[iter] <- paste(u_r,dumb_id$V1,sep="/")
     #set up the eventual file we want, named after the package ID
-    next_file[iter] <- paste(getwd(),study_names$V1[i],sep="/")
+    
+    
+    
     #add CSV to that final file name
     #we need two calls here because creating the directory path uses /, whereas adding the .csv won't use any
     #separator.
-    final_file[iter] <- paste(next_file[i],".csv",sep="")
-
+    final_studies[iter] <- study_names$V1[i]
     #update that iterator pls
     iter <- iter+1
   }
 }
-
 
 # multi_url <- "https://pasta.lternet.edu/package/data/eml/knb-lter-nwt/210/1"
 # download.file(multi_url, "Another.test.txt",method="curl")
@@ -84,8 +81,9 @@ for(i in 1:length(pids$V1)){
 #things got messy while testing this but you might be able to just throw this back into the original loop.
 #helps to have two to troubleshoot though, as running this takes a lot longer than just pulling PASTA Ids.
 for(i in 1:length(full_url)){
-  download.file(full_url[i],final_file[i],method="curl")
+  assign(final_studies[i],read.csv(full_url[i]))
 }
 
-length(full_url)
-final_file
+
+
+
