@@ -68,9 +68,15 @@ ids = []
 
 for l in range(len(raw_links)):
     if l % 2 == 0:
-        titles.append(raw_links[l].string)
+        raw_title = raw_links[l].string
+        cleaned_title = raw_title.replace(' ', '_')
+        cleaned_title = cleaned_title.replace(',','')
+        cleaned_title = cleaned_title.replace('-','to')
+        cleaned_title = cleaned_title.replace('.','')
+        titles.append(cleaned_title)
     else:
         ids.append(raw_links[l].string)
+
 
 
 output_file = 'study_ids.csv'
