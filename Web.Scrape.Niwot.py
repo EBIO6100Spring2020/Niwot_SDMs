@@ -21,14 +21,14 @@ import time, datetime, os
 #to serach like "Niwot Ridge" and "sensor" as two separte terms. It's either one long term ("Niwot Ridge Sensor")
 #or three seaparate terms ("Niwot" "Ridge" and "Sensor")
 
-search_file = open(r"Search.Words.txt", "r")
+#search_file = open(r"Search.Words.txt", "r")
 
 
 
-keywords = search_file.readlines()
+#keywords = search_file.readlines()
+
+keywords=["Niwot"]
 print(keywords)
-
-#keywords=["Niwot Ridge", "Soil Moisture", "Sensor Network"]
 
 
 
@@ -76,7 +76,8 @@ raw_links.extend(soup.select('a[href*=msb]'))
 titles = []
 ids = []
 
-
+print(raw_links)
+print()
 #print(range(len(raw_links)))
 
 for l in range(len(raw_links)):
