@@ -1,16 +1,50 @@
-batch_pull <- function(search = c("Niwot", "Saddle"), filter = TRUE){
+library(rvest)
+library(stringr)
+
+make_url = function(keywords){
+  words_block = ''
+  for (word in keywords){
+    if (words_block != ''){
+      words_block = paste(words_block,'+',word, sep='')
+    }
+    else {
+      words_block = word
+    }
+  }
   
-  ## first write key words to .txt file for the scaper to grab. 
-  write.table(search, "Search.Words.txt", sep = "\n", row.names = F, col.names = F)
+  str=paste("http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=1500&defType=edismax&q=%22",words_block,"%22&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false", sep='')
+  return(str)
+}
+
+scrape = function(keywords=c("niwot", "saddle")){
+  html = make_url(keywords) %>% read_html(.)
+  lines = html %>% html_nodes("a[href]") %>% grep('knb-lter-nwt', ., value=T) 
+  n_studies = length(lines)/2
+  print(paste(n_studies, "Studies Found"))
+  studies = data.frame(matrix(nrow=length(lines)/2, ncol=2))
+  colnames(studies) = c("paper_title", "paper_id")
   
-  ## run the python web scraper.. 
-  system("python3 Web.Scrape.Niwot.py")
-  system("rm Search.Words.txt")
+  entry_ct = 1 
+  line_ct = 1
+  for (line in lines){
+    text = line %>% read_html(.) %>% html_nodes("a") %>% html_text(., trim=T)
+    if (entry_ct %% 2 == 0){
+      studies[line_ct,2] = text
+      line_ct = line_ct + 1
+    }
+    else{
+      studies[line_ct,1] = text
+    }
+    entry_ct = entry_ct + 1
+  }
+  return(studies)
+}
+
+
+
+batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
   
-  ## back to normal, isn't that cool! 
-  
-  study_ids <- read.csv("study_ids.csv", stringsAsFactors = FALSE)
-  study_ids$paper_title <- gsub(" ","_",study_ids$paper_title)
+  study_ids = scrape(search)
   
   tmp_ids <- as.data.frame(matrix(nrow = 0, ncol = dim(study_ids)[1]))
   colnames(tmp_ids) <- colnames(study_ids)
@@ -94,7 +128,7 @@ batch_pull <- function(search = c("Niwot", "Saddle"), filter = TRUE){
   
   for(i in 1:length(full_url)){
     
-    print(read.csv(full_url[i], stringsAsFactors = FALSE)[1])))
+    print(read.csv(full_url[i], stringsAsFactors = FALSE)[1])
     
     # if('date' %in% check.names){
     #   print(full_url[i])
