@@ -21,7 +21,17 @@ import time, datetime, os
 #to serach like "Niwot Ridge" and "sensor" as two separte terms. It's either one long term ("Niwot Ridge Sensor")
 #or three seaparate terms ("Niwot" "Ridge" and "Sensor")
 
-keywords=["saddle", "composition"]
+search_file = open(r"Search.Words.txt", "r")
+
+
+
+keywords = search_file.readlines()
+print(keywords)
+
+#keywords=["Niwot Ridge", "Soil Moisture", "Sensor Network"]
+
+
+
 
 #here we make a query URL that we'll scrape for all the html content there. The "join" option should be
 #either True or False, and determines whether you search, for example, "Niwot Ridge" or "Niwot" and "Ridge"
@@ -67,19 +77,26 @@ titles = []
 ids = []
 
 
+#print(range(len(raw_links)))
 
 for l in range(len(raw_links)):
-    if l % 2 == 0:
-        raw_title = raw_links[l].string
-        cleaned_title = raw_title.replace('\t','')
-        cleaned_title = cleaned_title.replace('\n',' ')
-        cleaned_title = cleaned_title.replace('-','to')
-        cleaned_title = cleaned_title.replace(' ', '_')
-        cleaned_title = cleaned_title.replace(',','')
-        cleaned_title = cleaned_title.replace('.','')
-        titles.append(cleaned_title)
+    #print(l)
+    #print(raw_links[l])
+    #print("\n")
+    if raw_links[l].string is None:
+        print("NoneType")
     else:
-        ids.append(raw_links[l].string)
+        if l % 2 == 0:
+            raw_title = raw_links[l].string
+            cleaned_title = raw_title.replace('\t','')
+            cleaned_title = cleaned_title.replace('\n',' ')
+            cleaned_title = cleaned_title.replace('-','to')
+            cleaned_title = cleaned_title.replace(' ', '_')
+            cleaned_title = cleaned_title.replace(',','')
+            cleaned_title = cleaned_title.replace('.','')
+            titles.append(cleaned_title)
+        else:
+            ids.append(raw_links[l].string)
 
 #print(titles)
 
