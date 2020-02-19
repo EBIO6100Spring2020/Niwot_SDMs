@@ -13,6 +13,7 @@ make_url = function(keywords){
   }
   
   str=paste("http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=1500&defType=edismax&q=%22",words_block,"%22&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false", sep='')
+  print(paste("querying url: ", str))
   return(str)
 }
 
@@ -44,7 +45,7 @@ scrape = function(keywords=c("niwot", "saddle")){
 
 batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
   
-  study_ids = scrape(search)
+  study_ids = scrape(keywords=search)
   
   tmp_ids <- as.data.frame(matrix(nrow = 0, ncol = dim(study_ids)[1]))
   colnames(tmp_ids) <- colnames(study_ids)
