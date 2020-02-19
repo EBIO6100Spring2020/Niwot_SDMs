@@ -94,7 +94,7 @@ batch_pull <- function(search = c("Niwot", "Saddle"), filter = TRUE){
   
   for(i in 1:length(full_url)){
     
-    print(read.csv(full_url[i], stringsAsFactors = FALSE)[1])))
+    print(read.csv(full_url[i], stringsAsFactors = FALSE)[1])
     
     # if('date' %in% check.names){
     #   print(full_url[i])
