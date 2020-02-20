@@ -162,6 +162,3 @@ summarize_data = function(data_list, plot = FALSE){
   }
   
 }
-
-plot(Filter(is.numeric, plant_comp[[3]]))
-str(plant_comp[[3]])
