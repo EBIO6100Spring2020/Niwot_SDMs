@@ -1,9 +1,11 @@
+source('build.R')
 ## scrape.R 
 # use this file to scrape the EDI portal using batch_pull, ideally note the date and who searched
 # say if the data was saved and what you were doin!!
 
 ## 1. 2020/02/20 -- WR
-plant_comp <- batch_pull(c("Plant", "Community"), filter = FALSE ,save = FALSE)
+# this query is the one that pulls an image
+plant_comp <- batch_pull(c("Soils data digitized from"), filter = FALSE ,save = FALSE)
 summarize_data(plant_comp, plot = TRUE)
 # testing out search for plant comp
 # Not saving the data
