@@ -101,7 +101,7 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   for(i in 1:length(full_url)){
     is_csv = as.logical(length(system(paste("curl --head", full_url[i]), intern=T) %>% grep("text/plain", .)))
     
-    if (is_csv == T) {
+  if (is_csv == T) {
       tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
       cn = colnames(tmp_csv) # get column name to check if they are there at all
     
@@ -138,6 +138,7 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
     print(fp)
     save(data_list, fn, file = fp)
   }
+  }
   return(data_list)
 }
 
@@ -156,5 +157,4 @@ summarize_data = function(data_list, plot = FALSE){
     }
 
   }
-  
 }
