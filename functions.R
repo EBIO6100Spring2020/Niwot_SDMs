@@ -102,7 +102,7 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
   
   for(i in 1:length(full_url)){
-    tmp_csv = read.csv(full_url[i], stringsAsFactors = FALSE) # Read in csv for some QA/Qc
+    tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
     cn = colnames(tmp_csv) # get column name to check if they are there at all
   
   if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
@@ -145,4 +145,23 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   
 }
 
+## summarize_data()
+summarize_data = function(data_list, plot = FALSE){
+  for(i in 1:length(data_list)){
 
+    summary_list = list(name = names(data_list[i]), Columns = dim(data_list[[i]])[2], Rows = dim(data_list[[i]])[1])
+    print(summary_list$name)
+    print(summary_list$Columns)
+    print(summary_list$Rows)
+    print("---------------------------------------------")
+    
+    if (plot == TRUE){
+      plot(Filter(is.numeric, data_list[[i]]))
+    }
+
+  }
+  
+}
+
+plot(Filter(is.numeric, plant_comp[[3]]))
+str(plant_comp[[3]])
