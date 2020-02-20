@@ -1,6 +1,4 @@
-library(rvest)
-library(stringr)
-
+## make_url
 make_url = function(keywords){
   words_block = ''
   for (word in keywords){
@@ -17,6 +15,7 @@ make_url = function(keywords){
   return(str)
 }
 
+## scrape
 scrape = function(keywords=c("niwot", "saddle")){
   html = make_url(keywords) %>% read_html(.)
   lines = html %>% html_nodes("a[href]") %>% grep('knb-lter-nwt', ., value=T) 
@@ -42,25 +41,28 @@ scrape = function(keywords=c("niwot", "saddle")){
 }
 
 
+## batch_pull
+# this function will search for keywords on the Niwot EDI portal. It wraps scrape to search the html.
+# You can use a filter (argument: filter = TRUE) to make sure that the words you search are in the title of the data set
+# currently there are issues with data sets not having column names. I've added a fix so data isn't the column name but,
+# there might be a better solution 
 
-batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
+batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALSE){
   
-  study_ids = scrape(keywords=search)
+  study_ids = scrape(keywords=search) # find the data sets
   
-  tmp_ids = as.data.frame(matrix(nrow = 0, ncol = dim(study_ids)[2]))
-  colnames(tmp_ids) = colnames(study_ids)
+  tmp_ids = as.data.frame(matrix(nrow = 0, ncol = dim(study_ids)[2])) # store the names
+  colnames(tmp_ids) = colnames(study_ids) # change column names
   
-  if(filter == TRUE){
+  if(filter == TRUE){ ## here filter out any data sets that don't  have search words in the name
     for(k in 1:length(search)){
       study_ids_match_tmp = study_ids[grep(search[k], study_ids$paper_title),]
       tmp_ids = rbind(tmp_ids, study_ids_match_tmp)
     }
     study_ids = tmp_ids
   }
-  print(study_ids)
   
- 
-  infile1 = "Pasta.Ids.txt"
+  infile1 = "pasta_ids.txt" # initialize storage file
   full_url = c()
   final_studies = c()
 
@@ -73,7 +75,6 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
     u_r = paste("https://pasta.lternet.edu/package/data/eml/",temp_name,sep="")
 
     download.file(u_r,infile1,method="curl")
-    print(read.table(infile1))
     write("\n", infile1, append = T)
     
     dumb_id = read.table(infile1)
@@ -84,13 +85,9 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
         final_studies[iter] = paste(study_ids$paper_title[j],j,sep=".")
         iter = iter+1
       }
-
     }else{ 
       full_url[iter] = paste(u_r,dumb_id$V1,sep="/")
       #set up the eventual file we want, named after the package ID
-    
-      print(study_ids$paper_title[i])
-
       final_studies[iter] = study_ids$paper_title[i]
       #update that iterator pls
       iter = iter+1
@@ -98,33 +95,54 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = TRUE){
   }
 
 
-  data_list = list()
-  data_index = 1
-
+  ## Start the data loading
+  data_list = list() # Storage list
+  data_index = 1 # Index incase there are multiple data sets or we filter one out of the loop
+  
+  ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
+  
   for(i in 1:length(full_url)){
-
+    tmp_csv = read.csv(full_url[i], stringsAsFactors = FALSE) # Read in csv for some QA/Qc
+    cn = colnames(tmp_csv) # get column name to check if they are there at all
+  
+  if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
     
-  tmp_csv = read.csv(full_url[i])
+    warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
+    
+    missing_data = rep(NA, length(cn)) # place holder df to be the new first row
+    
+    missing_data <- as.data.frame(matrix(missing_data, nrow = 1, ncol = length(missing_data)), byrow = TRUE)
+    colnames(tmp_csv) <- colnames(missing_data)
+    tmp_csv = rbind(missing_data, tmp_csv)
+    
+    for(c in 1:length(cn)){
+      if(str_detect(cn[c], "[[:digit:]]")){
+        tmp_value = gsub("[[:alpha:]]","", cn[c])
+        suppressWarnings(tmp_csv[1,c] <- as.numeric(tmp_value))
+      } else {
+        suppressWarnings(tmp_csv[1, c] <- as.character(cn[c]))
+        
+      }
+    }
+  } 
+
   if(ncol(tmp_csv) > 1){
     data_list[[data_index]] = tmp_csv
     names(data_list)[data_index] = final_studies[i]
     data_index = data_index + 1
+    }
   }
   
-  
-  
-  
+  if (save == TRUE){
+    fn = paste(paste(search, collapse = "_"), "raw" ,Sys.Date(), sep = "_")
+    fp = paste("data/", fn, ".Rdata",sep = "")
+    print(fp)
+    save(data_list, fn, file = fp)
   }
   
-  file.remove("Pasta.Ids.txt")
+  file.remove("pasta_ids.txt")
   return(data_list)
-
+  
 }
 
-
-data_list = batch_pull(c("Soil", "Texture"))
-
-#########################################
-
-#batch_pull()
 
