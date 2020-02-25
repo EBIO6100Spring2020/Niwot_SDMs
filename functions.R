@@ -65,32 +65,32 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   full_url = c()
   final_studies = c()
 
-
+  infile1 = "pids.txt"
   
   iter = 1
   for(i in 1:length(study_ids$paper_id)){
     temp_name = gsub("\\.","/",study_ids$paper_id[i])
     u_r = paste("https://pasta.lternet.edu/package/data/eml/",temp_name,sep="")
     
-      #download.file(u_r, infile1, method="curl")
-        
-      ids = system(paste("curl", u_r))
+      download.file(u_r,infile1,method="curl")
+      write("\n", infile1, append = T)
       
-      for (dumb_id in ids){
-        if(length(ids)>1){
-          for(j in 1:length(ids)){
-            full_url[iter] = paste(u_r,ids[j],sep="/")
-            final_studies[iter] = paste(study_ids$paper_title[j],j,sep=".")
-            iter = iter+1
+      dumb_id = read.table(infile1)  
+      #ids = system(paste("curl", u_r))
+      
+      if(length(dumb_id$V1)>1){
+        for(j in 1:length(dumb_id$V1)){
+          full_url[iter] = paste(u_r,dumb_id$V1[j],sep="/")
+          final_studies[iter] = paste(study_ids$paper_title[j],j,sep=".")
+          iter = iter+1    
           }
         }else{ 
-          full_url[iter] = paste(u_r,dumb_id,sep="/")
+          full_url[iter] = paste(u_r,dumb_id$V1,sep="/")
           #set up the eventual file we want, named after the package ID
           final_studies[iter] = study_ids$paper_title[i]
           #update that iterator pls
           iter = iter+1
         }
-      }
   }
 
   ## Start the data loading
@@ -99,11 +99,9 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
   for(i in 1:length(full_url)){
-    is_csv = as.logical(length(system(paste("curl --head", full_url[i]), intern=T) %>% grep("text/plain", .)))
-    
-  if (is_csv == T) {
-      tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
-      cn = colnames(tmp_csv) # get column name to check if they are there at all
+    tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
+    print(tmp_csv)
+    cn = colnames(tmp_csv) # get column name to check if they are there at all
     
       if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
         warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
@@ -130,7 +128,6 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
       names(data_list)[data_index] = final_studies[i]
       data_index = data_index + 1
     }
-  }
   
   if (save == TRUE){
     fn = paste(paste(search, collapse = "_"), "raw" ,Sys.Date(), sep = "_")
@@ -139,8 +136,13 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
     save(data_list, fn, file = fp)
   }
   }
+  system("rm pids.txt")
   return(data_list)
+
 }
+
+########
+
 
 ## summarize_data()
 summarize_data = function(data_list, plot = FALSE){
