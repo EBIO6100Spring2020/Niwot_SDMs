@@ -5,7 +5,7 @@ source('build.R')
 
 ## 1. 2020/02/20 -- WR
 # this query is the one that pulls an image
-plant_comp <- batch_pull(c("Soils data digitized from"), filter = FALSE ,save = FALSE)
+plant_comp <- batch_pull(c("Saddle", "Community", "Survey"), filter = FALSE ,save = FALSE)
 summarize_data(plant_comp, plot = TRUE)
 # testing out search for plant comp
 # Not saving the data
