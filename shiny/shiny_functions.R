@@ -19,6 +19,32 @@ make_url = function(keywords){
   return(str)
 }
 
+#this chunk won't run, but this is what the PASTA call would look like for this kind of thing.
+if(FALSE){
+  
+  #this now just makes the keywords we want into a bit we can paste into our curl call.
+make_keywords <- function(keywords){
+  #warning I have not tested this section, its just copied from above but i haven't checked to make sure I implemented it correctly
+  words_bl <- ''
+  for (word in keywords){
+    if (words_bl != ''){
+      words_bl = paste(words_bl,'+',word, sep='')
+    }else {
+      words_bl = word
+    }
+  }
+  return(words_bl)
+}
+#here we define the solr query that will pull metadata, in this case using keywords defined by make_keywords and requesting title, pid, doi, dates, coordinates, scope, and methods
+  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",words_bl,"\\&fl=title,packageid,doi,begindate,enddate,coordinates,timescale\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+  
+  test.biz <- xmlParse(system(curl_call,intern=T))
+  test.df <- xmlToDataFrame(test.biz)
+  
+}
+
+
+
 ## scrape
 scrape = function(keywords=c("niwot", "saddle")){
   html = make_url(keywords) %>% read_html(.)
