@@ -24,11 +24,34 @@ shinyServer(function(input, output, session){
     plot_o = reactive({
       
       if (input$plotting1 != "None" & input$plotting2 == "None"){
-        hist(data_list[[data_index]][,input$plotting1], main = input$plotting, breaks = 20, xlab = input$plotting1)
+        hist(data_list[[data_index]][,input$plotting1], main = input$plotting, 
+             breaks = 20, 
+             xlab = input$plotting1, 
+             cex.axis = 1.4)
       } else if (input$plotting1 == "None" & input$plotting2 != "None"){
-        hist(data_list[[data_index]][,input$plotting2], main = input$plotting, breaks = 20, xlab = input$plotting2)
+        hist(data_list[[data_index]][,input$plotting2], main = input$plotting, 
+             breaks = 20, 
+             xlab = input$plotting2, 
+             cex.axis = 1.4,
+             cex.lab = 1.6)
       } else if (input$plotting1 != "None" & input$plotting2 != "None"){
-        plot(data_list[[data_index]][,input$plotting2] ~ data_list[[data_index]][,input$plotting1], ylab = input$plotting2, xlab = input$plotting1)
+        par(mfrow = c(1,2))
+        hist(data_list[[data_index]][,input$plotting1], main = input$plotting1, 
+             breaks = 20, 
+             xlab = input$plotting1, 
+             cex.axis = 1.4,
+             cex.lab = 1.6)
+        hist(data_list[[data_index]][,input$plotting2], 
+             breaks = 20,
+             col = "blue",
+             add = T)
+        plot(data_list[[data_index]][,input$plotting2] ~ data_list[[data_index]][,input$plotting1], 
+             ylab = input$plotting2, 
+             xlab = input$plotting1,
+             pch = 19,
+             col = sample(colors(), 1),
+             cex.axis = 1.4,
+             cex.lab = 1.6)
       }
     })
     
