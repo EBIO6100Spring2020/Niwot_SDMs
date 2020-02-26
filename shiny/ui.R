@@ -36,7 +36,7 @@ fluidPage(
                 column(1, 
                        actionButton("Prev", label = "Previous Dataset"), style = 'margin-right:10px; width:120px;', value = 1),
                 column(2,
-                       actionButton("Next", label = "Next Dataset"), style = 'margin-left:10px; width:120px;', value = 1)
+                       actionButton("Next", label = "Next Dataset"), style = 'margin-left:10px; width:120px;', value = 1), style = 'margin-top:50px;'
 
               ),
               fluidRow(
