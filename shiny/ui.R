@@ -36,11 +36,15 @@ fluidPage(
                 column(1, 
                        actionButton("Prev", label = "Previous Dataset"), style = 'margin-right:10px; width:120px;', value = 1),
                 column(2,
-                       actionButton("Next", label = "Next Dataset", style = 'margin-left:10px; width:120px;', value = 1),
-                column(3,
-                       selectInput("plotting",label = "", choices = ""), style = 'margin-left:10px; width:120px;')
-                
-                       )
+                       actionButton("Next", label = "Next Dataset"), style = 'margin-left:10px; width:120px;', value = 1)
+
+              ),
+              fluidRow(
+                column(1,
+                       selectInput("plotting1",label = "", choices = ""), style = 'margin-left:0px; margin-top:25px; width:170px;'),
+                column(2,
+                       selectInput("plotting2",label = "", choices = ""), style = 'margin-left:0px; margin-top:25px; width:170px;')
+                 
               ),
               plotOutput("hist1"),
               style = 'width:900px;margin-left:19px;'), fluid = FALSE
