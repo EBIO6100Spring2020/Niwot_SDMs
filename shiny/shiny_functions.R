@@ -1,4 +1,8 @@
 ## make_url
+library(rvest)
+library(stringr)
+library(magrittr)
+
 make_url = function(keywords){
   words_block = ''
   for (word in keywords){
