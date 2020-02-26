@@ -1,30 +1,12 @@
 ## make_url
-library(rvest)
 library(stringr)
-library(magrittr)
+library(XML)
 
-make_url = function(keywords){
-  words_block = ''
-  for (word in keywords){
-    if (words_block != ''){
-      words_block = paste(words_block,'+',word, sep='')
-    }
-    else {
-      words_block = word
-    }
-  }
-  
-  str=paste("http://portal.lternet.edu:80/nis/simpleSearch?start=0&rows=1500&defType=edismax&q=%22",words_block,"%22&fq=-scope:ecotrends&fq=-scope:lter-landsat*&fl=id,packageid,title,author,organization,pubdate,coordinates&debug=false", sep='')
-  print(paste("querying url: ", str))
-  return(str)
-}
 
-#this chunk won't run, but this is what the PASTA call would look like for this kind of thing.
-if(FALSE){
-  
-  #this now just makes the keywords we want into a bit we can paste into our curl call.
-make_keywords <- function(keywords){
-  #warning I have not tested this section, its just copied from above but i haven't checked to make sure I implemented it correctly
+
+#this now just makes the keywords we want into a bit we can paste into our curl call.
+make_keywords =function(keywords){
+
   words_bl <- ''
   for (word in keywords){
     if (words_bl != ''){
@@ -35,39 +17,28 @@ make_keywords <- function(keywords){
   }
   return(words_bl)
 }
-#here we define the solr query that will pull metadata, in this case using keywords defined by make_keywords and requesting title, pid, doi, dates, coordinates, scope, and methods
-  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",words_bl,"\\&fl=title,packageid,doi,begindate,enddate,coordinates,timescale\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
   
-  test.biz <- xmlParse(system(curl_call,intern=T))
-  test.df <- xmlToDataFrame(test.biz)
-  
+filter_nwt = function(df){
+  df = df[grep('nwt', df$packageid),]
+  return(df)
 }
 
+get_data = function(keywords){
+  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",keywords,"\\&fl=title,packageid,doi,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+  test.biz <- xmlParse(system(curl_call,intern=T))
+  test.df <- xmlToDataFrame(test.biz)
+  test.df = filter_nwt(test.df)
+  return(test.df)
+}
 
-
-## scrape
-scrape = function(keywords=c("niwot", "saddle")){
-  html = make_url(keywords) %>% read_html(.)
-  lines = html %>% html_nodes("a[href]") %>% grep('knb-lter-nwt', ., value=T) 
-  n_studies = length(lines)/2
-  print(paste(n_studies, "Studies Found"))
-  studies = data.frame(matrix(nrow=length(lines)/2, ncol=2))
-  colnames(studies) = c("paper_title", "paper_id")
-  
-  entry_ct = 1 
-  line_ct = 1
-  for (line in lines){
-    text = line %>% read_html(.) %>% html_nodes("a") %>% html_text(., trim=T)
-    if (entry_ct %% 2 == 0){
-      studies[line_ct,2] = text
-      line_ct = line_ct + 1
-    }
-    else{
-      studies[line_ct,1] = text
-    }
-    entry_ct = entry_ct + 1
+filter_exactmatch = function(search, vect, df){
+  filter_df = as.data.frame(matrix(nrow = 0, ncol = dim(df)[2]))
+  colnames(filter_df) = colnames(df)
+  for(k in 1:length(search)){
+    match = df[grep(search[k], vect)]
+    filter_df = rbind(filter_df, match)
   }
-  return(studies)
+  return(fitler_df)
 }
 
 
@@ -77,47 +48,39 @@ scrape = function(keywords=c("niwot", "saddle")){
 # currently there are issues with data sets not having column names. I've added a fix so data isn't the column name but,
 # there might be a better solution 
 
-batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALSE){
-  
-  study_ids = scrape(keywords=search) # find the data sets
-  
-  tmp_ids = as.data.frame(matrix(nrow = 0, ncol = dim(study_ids)[2])) # store the names
-  colnames(tmp_ids) = colnames(study_ids) # change column names
-  
-  if(filter == TRUE){ ## here filter out any data sets that don't  have search words in the name
-    for(k in 1:length(search)){
-      study_ids_match_tmp = study_ids[grep(search[k], study_ids$paper_title),]
-      tmp_ids = rbind(tmp_ids, study_ids_match_tmp)
-    }
-    study_ids = tmp_ids
+batch_search = function(search = c("Saddle", "Composition"), filter = FALSE) {
+  study_ids = get_data(make_keywords(search)) # find the data sets
+  if (filter == TRUE){
+    study_ids = filter_exactmatch(search, study_ids$title, study_ids)
   }
+  
+  return(study_ids)
+  
+}
+
+
+batch_pull = function(study_ids){
   
   full_url = c()
   final_studies = c()
   
-  infile1 = "pids.txt"
-  
   iter = 1
-  for(i in 1:length(study_ids$paper_id)){
-    temp_name = gsub("\\.","/",study_ids$paper_id[i])
+  for(i in 1:length(study_ids$packageid)){
+    
+    temp_name = gsub("\\.","/",study_ids$packageid[i])
     u_r = paste("https://pasta.lternet.edu/package/data/eml/",temp_name,sep="")
+    pastas <- system(paste("curl",u_r, sep = " "),intern = T)
     
-    download.file(u_r,infile1,method="curl")
-    write("\n", infile1, append = T)
-    
-    dumb_id = read.table(infile1)  
-    #ids = system(paste("curl", u_r))
-    
-    if(length(dumb_id$V1)>1){
-      for(j in 1:length(dumb_id$V1)){
-        full_url[iter] = paste(u_r,dumb_id$V1[j],sep="/")
-        final_studies[iter] = paste(study_ids$paper_title[j],j,sep=".")
+    if(length(pastas)>1){
+      for(j in 1:length(pastas)){
+        full_url[iter] = paste(u_r,pastas[j],sep="/")
+        final_studies[iter] = paste(as.character(study_ids$title[j]),j,sep=".")
         iter = iter+1    
       }
     }else{ 
-      full_url[iter] = paste(u_r,dumb_id$V1,sep="/")
+      full_url[iter] = paste(u_r,pastas,sep="/")
       #set up the eventual file we want, named after the package ID
-      final_studies[iter] = study_ids$paper_title[i]
+      final_studies[iter] = as.character(study_ids$title[i])
       #update that iterator pls
       iter = iter+1
     }
@@ -129,63 +92,46 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
   for(i in 1:length(full_url)){
-    tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
-    cn = colnames(tmp_csv) # get column name to check if they are there at all
     
-    if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
-      warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
-      missing_data = rep(NA, length(cn)) # place holder df to be the new first row
-      
-      missing_data <- as.data.frame(matrix(missing_data, nrow = 1, ncol = length(missing_data)), byrow = TRUE)
-      colnames(tmp_csv) <- colnames(missing_data)
-      tmp_csv = rbind(missing_data, tmp_csv)
-      
-      for(c in 1:length(cn)){
-        if(str_detect(cn[c], "[[:digit:]]")){
-          tmp_value = gsub("[[:alpha:]]","", cn[c])
-          suppressWarnings(tmp_csv[1,c] <- as.numeric(tmp_value))
-        } 
-        else {
-          suppressWarnings(tmp_csv[1, c] <- as.character(cn[c]))
-        }
-      }
-    }
+    file_info = system(paste0("curl --head ",full_url[i]), intern = T)
     
-    
-    if(ncol(tmp_csv) > 1){
-      data_list[[data_index]] = tmp_csv
+    if(any(grepl(".csv", file_info[grep("filename", file_info)]))){
+      data_list[[data_index]] = read.csv(full_url[i], stringsAsFactors = FALSE)
       names(data_list)[data_index] = final_studies[i]
-      data_index = data_index + 1
+      data_index = data_index + 1 
     }
     
-    if (save == TRUE){
-      fn = paste(paste(search, collapse = "_"), "raw" ,Sys.Date(), sep = "_")
-      fp = paste("data/", fn, ".Rdata",sep = "")
-      print(fp)
-      save(data_list, fn, file = fp)
-    }
   }
-  system("rm pids.txt")
+  
   return(data_list)
   
 }
 
-########
+timeline = function(begin_vect, end_vect, label_vect){
+  
+  begin_vect = as.Date(begin_vect)
+  end_vect = as.Date(end_vect)
+  print(class(begin_vect))
+  print(min(begin_vect))
+  
+  
+  plot(1:length(begin_vect) ~ begin_vect, 
+       bty = "n",
+       yaxt = "n",
+       pch = 19, 
+       cex = 1.1, 
+       ylim = c(0, length(begin_vect) + 1),
+       ylab = "",
+       xlim = c(min(begin_vect), max(end_vect) + 6000))
+  points(1:length(begin_vect) ~ end_vect, pch = 19, cex = 1.1)
 
+  for(i in 1:length(begin_vect)){
+    rect(xleft = begin_vect[i], xright = end_vect[i], ybottom = i - 0.5, ytop = i + 0.5, col = colors()[i])
+    text(x = end_vect[i] + 1, y = i, labels = label_vect[i], pos = 4, cex = 1)
 
-## summarize_data()
-summarize_data = function(data_list, plot = FALSE){
-  for(i in 1:length(data_list)){
-    
-    summary_list = list(name = names(data_list[i]), Columns = dim(data_list[[i]])[2], Rows = dim(data_list[[i]])[1])
-    print(summary_list$name)
-    print(summary_list$Columns)
-    print(summary_list$Rows)
-    print("---------------------------------------------")
-    
-    if (plot == TRUE){
-      plot(Filter(is.numeric, data_list[[i]]))
-    }
-    
   }
 }
+
+
+
+
