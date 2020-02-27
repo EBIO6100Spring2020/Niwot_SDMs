@@ -14,6 +14,7 @@ make_keywords =function(keywords){
     }
   }
   return(words_bl)
+
 }
   
 filter_nwt = function(df){
@@ -90,6 +91,30 @@ batch_pull = function(study_ids){
   
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
   for(i in 1:length(full_url)){
+    
+    
+    tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
+    cn = colnames(tmp_csv) # get column name to check if they are there at all
+    
+    if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
+      warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
+      missing_data = rep(NA, length(cn)) # place holder df to be the new first row
+      
+      missing_data <- as.data.frame(matrix(missing_data, nrow = 1, ncol = length(missing_data)), byrow = TRUE)
+      colnames(tmp_csv) <- colnames(missing_data)
+      tmp_csv = rbind(missing_data, tmp_csv)
+      
+      for(c in 1:length(cn)){
+        if(str_detect(cn[c], "[[:digit:]]")){
+          tmp_value = gsub("[[:alpha:]]","", cn[c])
+          suppressWarnings(tmp_csv[1,c] <- as.numeric(tmp_value))
+        } 
+        else {
+          suppressWarnings(tmp_csv[1, c] <- as.character(cn[c]))
+        }
+      }
+    }
+
     
     file_info = system(paste0("curl --head ",full_url[i]), intern = T)
     
