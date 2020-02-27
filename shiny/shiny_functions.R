@@ -22,7 +22,7 @@ filter_nwt = function(df){
 }
 
 get_data = function(keywords){
-  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",keywords,"\\&fl=title,packageid,doi,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",keywords,"\\&fl=title,packageid,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
   test.biz <- xmlParse(system(curl_call,intern=T))
   test.df <- xmlToDataFrame(test.biz)
   test.df = filter_nwt(test.df)

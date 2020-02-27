@@ -58,13 +58,13 @@ fluidPage(
                 ),
                 fluidRow(
                   column(1,
-                         checkboxGroupInput("to_dl", label = "Select Data sets to download", choices = c()), style = "width:340px; margin-top:10px;" 
+                         checkboxGroupInput("to_dl", label = "Select Data sets to download", choices = c()), style = "width:340px; margin-top:10px" 
                   )
                 ),
-                 style = 'width:350px;border-style:solid;background-color:rgba(0.6,0.6,0.6,0.2);margin-top:15px;border-color:rgba(0.2,0.2,0.2,0.2)'
+                 style = 'width:350px;background-color:lightgray; height:100vh; position:fixed;;box-sizing:content-box;overflow-y:scroll'
                  
     ),
-    mainPanel(
+    absolutePanel(left = 450,
       fluidRow(
         plotOutput("hist1"),
         plotOutput("map1")
@@ -72,6 +72,6 @@ fluidPage(
       fluidRow(
                dataTableOutput("t1")),
 
-              style = 'width:900px;margin-left:19px;'), fluid = FALSE
+              style = 'width:800px;margin-left:19px;z-index:-1;'), fluid = FALSE
   )
 )

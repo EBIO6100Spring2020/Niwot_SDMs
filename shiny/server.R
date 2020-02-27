@@ -70,7 +70,7 @@ shinyServer(function(input, output, session){
         plot_o()
       }, width = 900, height = 450)
 
-    
+      output$map1 = NULL
     
   })
   
