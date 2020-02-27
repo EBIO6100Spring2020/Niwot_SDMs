@@ -5,23 +5,29 @@ source("shiny_functions.R")
 shinyServer(function(input, output, session){
   data_index = 1
   
+  
+  
   observeEvent(input$go,{
     print("searching")
     
     search_terms = strsplit(input$search, split = " ")
     print(unlist(search_terms))
     search_results <<- batch_search(unlist(search_terms), filter = input$filter)
+    print(nrow(search_results))
+    colors_touse = get_colors(nrow(search_results))
+    print(colors_touse)
     
     output$t1 = renderDataTable(search_results, options = list(searching = FALSE, pageLength = 25))
-    updateCheckboxGroupInput(session, inputId = "to_view", choices = c("None", as.character(search_results$title)), selected = "None")
+    updateCheckboxGroupInput(session, inputId = "to_view", choices = as.character(search_results$title))
     
-    output$hist1 = renderPlot(timeline(search_results$begindate, search_results$enddate, search_results$title))
- 
+    output$hist1 = renderPlot(timeline(search_results$begindate, search_results$enddate, search_results$title, colors_touse))
+    output$map1 = renderPlot(map_emall(search_results$spatialCoverage, colors_touse))
+    
    })
   
   observeEvent(input$View,{
     data_list <<- batch_pull(search_results[search_results$title %in% input$to_view,])
-    updateCheckboxGroupInput(session, inputId = "to_dl", choices = names(data_list))
+    updateCheckboxGroupInput(session, inputId = "to_dl", choices = names(data_list), selected = names(data_list))
     updateSelectInput(session, inputId = "plotting1", choices = c("None", names(data_list[[data_index]])), selected = "None")
     updateSelectInput(session, inputId = "plotting2", choices = c("None", names(data_list[[data_index]])), selected = "None")
     output$t1 = renderDataTable(data_list[[data_index]], options = list(searching = FALSE, pageLength = 15))
