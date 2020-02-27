@@ -34,6 +34,7 @@ make_keywords <- function(keywords){
     }
   }
   return(words_bl)
+
 }
 #here we define the solr query that will pull metadata, in this case using keywords defined by make_keywords and requesting title, pid, doi, dates, coordinates, scope, and methods
   curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",words_bl,"\\&fl=title,packageid,doi,begindate,enddate,coordinates,timescale\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
@@ -129,6 +130,9 @@ batch_pull = function(search = c("Niwot", "Saddle"), filter = FALSE, save = FALS
   
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
   for(i in 1:length(full_url)){
+    
+    
+    
     tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
     cn = colnames(tmp_csv) # get column name to check if they are there at all
     
