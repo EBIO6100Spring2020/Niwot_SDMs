@@ -92,7 +92,9 @@ shinyServer(function(input, output, session){
     updateSelectInput(session, inputId = "plotting2", choices = c("None", names(data_list[[data_index]])), selected = "None")
   })
   
-  
+  observeEvent(input$collapse1,{
+
+  })
   
   output$download <- downloadHandler(
     filename = function(){

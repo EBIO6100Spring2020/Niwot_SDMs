@@ -25,7 +25,9 @@ fluidPage(
                    column(1,
                           h3("View", style = "margin:0px;")),
                    column(2,
-                          actionButton("View", label = "View"), style = 'margin-left:30px;')
+                          actionButton("View", label = "View"), style = 'margin-left:30px;'),
+                   column(3,
+                          actionButton("collapse1", label = "", icon = icon("icon/collapse.pngve")))
                    
                  ),
                  fluidRow(
