@@ -63,13 +63,13 @@ fluidPage(
                          checkboxGroupInput("to_dl", label = "Select Data sets to download", choices = c()), style = "width:340px; margin-top:10px" 
                   )
                 ),
-                 style = 'width:350px;background-color:lightgray; height:100vh; position:fixed;;box-sizing:content-box;overflow-y:scroll'
+                 style = 'width:350px;background-color:lightgray; height:98vh; position:fixed;;box-sizing:content-box;overflow-y:scroll'
                  
     ),
     absolutePanel(left = 450,
       fluidRow(
-        plotOutput("hist1"),
-        plotOutput("map1")
+        plotlyOutput("hist1"),
+        plotlyOutput("map1")
       ),
       fluidRow(
                dataTableOutput("t1")),
@@ -77,3 +77,6 @@ fluidPage(
               style = 'width:800px;margin-left:19px;z-index:-1;'), fluid = FALSE
   )
 )
+
+
+

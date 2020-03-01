@@ -5,72 +5,37 @@ source("shiny_functions.R")
 shinyServer(function(input, output, session){
   data_index = 1
   
-  
+
   
   observeEvent(input$go,{
     print("searching")
     
+    
     search_terms = strsplit(input$search, split = " ")
-    print(unlist(search_terms))
     search_results <<- batch_search(unlist(search_terms), filter = input$filter)
-    print(nrow(search_results))
     colors_touse = get_colors(nrow(search_results))
-    print(colors_touse)
     
-    output$t1 = renderDataTable(search_results, options = list(searching = FALSE, pageLength = 25))
-    updateCheckboxGroupInput(session, inputId = "to_view", choices = as.character(search_results$title))
-    
-    output$hist1 = renderPlot(timeline(search_results$begindate, search_results$enddate, search_results$title, colors_touse))
-    output$map1 = renderPlot(map_emall(search_results$spatialCoverage, colors_touse))
+    if (nrow(search_results) > 0){
+      output$t1 = DT::renderDataTable(search_results, options = list(searching = FALSE, pageLength = 25))
+      updateCheckboxGroupInput(session, inputId = "to_view", choices = as.character(search_results$title))
+      
+      output$hist1 = renderPlotly(timeline2(search_results))
+      output$map1 = renderPlotly(make_map(map_emall(search_results)))
+    }
     
    })
+  
   
   observeEvent(input$View,{
     data_list <<- batch_pull(search_results[search_results$title %in% input$to_view,])
     updateCheckboxGroupInput(session, inputId = "to_dl", choices = names(data_list), selected = names(data_list))
     updateSelectInput(session, inputId = "plotting1", choices = c("None", names(data_list[[data_index]])), selected = "None")
     updateSelectInput(session, inputId = "plotting2", choices = c("None", names(data_list[[data_index]])), selected = "None")
-    output$t1 = renderDataTable(data_list[[data_index]], options = list(searching = FALSE, pageLength = 15))
-    
-    plot_o = reactive({
-      
-      if (input$plotting1 != "None" & input$plotting2 == "None"){
-        hist(data_list[[data_index]][,input$plotting1], main = input$plotting, 
-             breaks = 20, 
-             xlab = input$plotting1, 
-             cex.axis = 1.4)
-      } else if (input$plotting1 == "None" & input$plotting2 != "None"){
-        hist(data_list[[data_index]][,input$plotting2], main = input$plotting, 
-             breaks = 20, 
-             xlab = input$plotting2, 
-             cex.axis = 1.4,
-             cex.lab = 1.6)
-      } else if (input$plotting1 != "None" & input$plotting2 != "None"){
-        par(mfrow = c(1,2))
-        hist(data_list[[data_index]][,input$plotting1], main = input$plotting1, 
-             breaks = 20, 
-             xlab = input$plotting1, 
-             cex.axis = 1.4,
-             cex.lab = 1.6)
-        hist(data_list[[data_index]][,input$plotting2], 
-             breaks = 20,
-             col = rgb(52/255,235/255,222/255, 0.6),
-             add = T)
-        plot(data_list[[data_index]][,input$plotting2] ~ data_list[[data_index]][,input$plotting1], 
-             ylab = input$plotting2, 
-             xlab = input$plotting1,
-             pch = 19,
-             col = rgb(52/255,235/255,222/255),
-             cex.axis = 1.4,
-             cex.lab = 1.6)
-      }
-    })
-    
-      output$hist1 <- renderPlot({
-        plot_o()
-      }, width = 900, height = 450)
+    output$t1 = DT::renderDataTable(data_list[[data_index]], options = list(searching = FALSE, pageLength = 15))
+  
 
-      output$map1 = NULL
+    output$hist1 = renderPlotly(timeline2(search_results[search_results$title %in% input$to_view, ]))
+    output$map1 = renderPlotly(make_map(map_emall(search_results[search_results$title %in% input$to_view, ])))
     
   })
   

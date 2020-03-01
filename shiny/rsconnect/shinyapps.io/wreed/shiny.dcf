@@ -1,0 +1,10 @@
+name: shiny
+title:
+username:
+account: wreed
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1873874
+bundleId: 2842224
+url: https://wreed.shinyapps.io/shiny/
+when: 1583100972.80696

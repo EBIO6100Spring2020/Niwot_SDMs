@@ -1,6 +1,10 @@
 library(stringr)
 library(XML)
 library(ggplot2)
+library(DT)
+library(plotly)
+library(maps)
+
 
 #this now just makes the keywords we want into a bit we can paste into our curl call.
 make_keywords =function(keywords){
@@ -24,11 +28,23 @@ filter_nwt = function(df){
 
 get_data = function(keywords){
   curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",keywords,"\\&fl=title,packageid,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+  
   test.biz <- xmlParse(system(curl_call,intern=T))
-  test.df <- xmlToDataFrame(test.biz)
-  test.df = filter_nwt(test.df)
+  
+  
+  if(length(xpathSApply(test.biz, "//title", xmlValue))){
+    test.df <- xmlToDataFrame(test.biz)
+    test.df = filter_nwt(test.df)
+    
+  } else {
+    test.df = as.data.frame(matrix(nrow = 0, ncol = 5))
+    colnames(test.df) = c("title", "packageid", "begindate", "enddate", "spatialcoverage")
+  }
+  
   return(test.df)
-}
+  
+  }
+
 
 filter_exactmatch = function(search, vect, df){
   filter_df = as.data.frame(matrix(nrow = 0, ncol = dim(df)[2]))
@@ -52,6 +68,9 @@ batch_search = function(search = c("Saddle", "Composition"), filter = FALSE) {
   if (filter == TRUE){
     study_ids = filter_exactmatch(search, study_ids$title, study_ids)
   }
+  
+  
+  
   
   return(study_ids)
   
@@ -142,7 +161,6 @@ timeline = function(begin_vect, end_vect, label_vect, colors_touse){
   begin_vect = as.Date(begin_vect)
   end_vect = as.Date(end_vect)
   
-  print(begin_vect)
   
   in_order = order(begin_vect)
 
@@ -182,12 +200,10 @@ timeline = function(begin_vect, end_vect, label_vect, colors_touse){
   
 }
 
-map_emall = function(geo_list, colors_touse){
-  geo_list <- as.character(geo_list)
-  print(geo_list)  
-  
-  bb.frame = as.data.frame(matrix(nrow = 0, ncol = 4))
-  colnames(bb.frame) = c("Easting", "Westing", "Northing", "Southing")
+map_emall = function(df){
+  geo_list <- as.character(df$spatialCoverage)
+  bb.frame = as.data.frame(matrix(nrow = 0, ncol = 5))
+  colnames(bb.frame) = c("Easting", "Westing", "Northing", "Southing", "title")
   
   for(i in 1:length(geo_list)){
     split_coords = unlist(strsplit(geo_list[i], split = " "))
@@ -197,23 +213,166 @@ map_emall = function(geo_list, colors_touse){
       bb.frame[nrow(bb.frame), "Westing"] = as.numeric(split_coords[2])
       bb.frame[nrow(bb.frame), "Northing"] = as.numeric(split_coords[4])
       bb.frame[nrow(bb.frame), "Southing"] = as.numeric(split_coords[3])
+      bb.frame[nrow(bb.frame), "title"] = as.character(df$title[i])
       
+    } else {
+      #print(split_coords)
     }
     
-  }
-  
-  print(bb.frame)
-  plot.new()
-  plot.window(xlim = c(min(bb.frame$Westing), max(bb.frame$Easting)), ylim = c(min(bb.frame$Southing), max(bb.frame$Northing)))
-  axis(1)
-  axis(2)
-  
-  for(i in 1:nrow(bb.frame)){
-    rect(xleft = bb.frame$Easting[i], xright = bb.frame$Westing[i], ybottom = bb.frame$Southing[i], ytop = bb.frame$Northing[i], col = alpha(colors_touse[i], 0.5))
   }
   
   return(bb.frame)
   
 }
 
+clip_titles = function(title_vect){
+  clipped_titles = NULL
+  for (i in title_vect) {
+    clipped_titles[i] = gsub(",.*", "", i) 
+  }
+    names(clipped_titles) = NULL
+    return(clipped_titles)
+}
 
+
+make_bbox = function(df){
+  final_bbox = as.data.frame(matrix(nrow = 0, ncol = 4))
+  colnames(final_bbox) = c('Easting', 'Northing', 'color', 'title')
+  
+  
+    
+  for(i in 1:nrow(df)){
+    
+    bbox = as.data.frame(matrix(nrow = 5, ncol = 4))
+    colnames(bbox) = c('lon', 'lat', 'color', 'title')
+    bbox[1,1] = c(df[i,1])
+    bbox[2,1] = c(df[i,2])
+    bbox[4,1] = c(df[i,1])
+    bbox[3,1] = c(df[i,2])
+    bbox[5,1] = c(df[i,1])
+    
+    bbox[1,2] = c(df[i,3])
+    bbox[2,2] = c(df[i,3])
+    bbox[4,2] = c(df[i,4])
+    bbox[3,2] = c(df[i,4])
+    bbox[5,2] = c(df[i,3])
+    
+    bbox$color = as.factor(i)
+    bbox$title = df$title[i]
+    
+    
+    final_bbox = rbind(final_bbox, bbox)
+  }
+  
+
+ 
+    return(final_bbox) 
+}
+
+
+
+#######################
+
+
+make_map = function(y){
+  
+  dat = map_data('county')
+  dat = dat %>% filter(region == 'colorado')
+  dat = dat %>% filter(subregion %in% 'boulder')
+  colors = viridis::plasma(nrow(y), alpha = 0.5)
+  
+  y2 = make_bbox(y)
+  y2 = y2 %>% group_by(color)
+  
+  
+  fig <- plot_ly(y2,
+                 mode = 'lines',
+                 text = ~title,
+                 fill = 'toself',
+                 type = 'scattermapbox',
+                 hoverinfo = 'text',
+                 lon =  ~lon,
+                 lat =  ~lat,
+                 color = ~color,
+                 colors = colors,
+                 opacity = 0.2)
+
+ 
+  fig <- fig %>% layout(
+          mapbox = list(
+            data = y2,
+            style = "carto-positron",
+            center = list(lat = ~mean(lat, na.rm = T), lon = ~mean(lon, na.rm = T)),
+            zoom = 11),
+          showlegend = FALSE)  
+      
+      
+  
+
+  
+  return(fig)
+  
+}
+
+timeline2 = function(df){
+  
+  print(df$begindate)
+  df$title = clip_titles(df$title)
+  
+  ax <- list(
+    title = "",
+    zeroline = FALSE,
+    showline = FALSE,
+    showticklabels = FALSE,
+    showgrid = FALSE
+  )
+  
+  
+  colors = viridis::plasma(nrow(df), alpha = 0.5)
+  
+  df = df[df$begindate != "", ]
+  
+  df = df[order(df$begindate),]
+  names = colnames(df)
+  df = cbind(df, seq(1:nrow(df)))
+  colnames(df) = c(names, 'index')
+  
+  fig = plot_ly(data = df,
+          type = 'scatter',
+          x = ~begindate,
+          y = ~index,
+          text = ~paste(title, "\n", "Start:",begindate, "\n", "End:", enddate),
+          hoverinfo = 'text',
+          showlegend = FALSE,
+          size = I(75),
+          color = I("black")
+          )
+  
+  fig = fig %>% add_markers(x = ~as.Date(enddate),
+                            y = ~index,
+                            showlegend = FALSE,
+                            size = I(75),
+                            hoverinfo = 'none',
+                              color = I("black"))
+  
+  shapes = list()
+  for(i in 1:nrow(df)){
+    
+    shapes[[i]] = list(type = "rect",
+                              fillcolor = colors[i], line = list(color = "black"), opacity = 0.9,
+                              x0 = df[i, 'begindate'], x1 = df[i, 'enddate'], xref = "x",
+                              y0 = df[i, 'index'] - 0.5, y1 = df[i, 'index'] + 0.5, yref = "y")
+    
+    names(shapes[i]) = paste("shape", i, sep = "")
+                        
+  }
+  
+  fig = fig %>% layout(yaxis = ax,
+                       xaxis = list(title = "Date"),
+                       shapes = shapes)
+  
+  fig
+  
+}
+
+x = batch_search(c("dfasdfasdf"))
