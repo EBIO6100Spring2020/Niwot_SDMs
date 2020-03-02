@@ -1,87 +1,88 @@
 library(stringr)
 library(XML)
-library(ggplot2)
 library(DT)
 library(plotly)
 library(maps)
 
 
-#this now just makes the keywords we want into a bit we can paste into our curl call.
+## make_keywords()
+# this function makes the keyewords you are searching into the proper format
+# ie. "word1+word2+etc..."
+# just takes argument keywords
 make_keywords =function(keywords){
-
-  words_bl <- ''
-  for (word in keywords){
-    if (words_bl != ''){
-      words_bl = paste(words_bl,'+',word, sep='')
-    }else {
-      words_bl = word
+  words_bl = '' # make an empty object to store the word block
+  for (word in keywords){ # start loop through keyword vector
+    if (words_bl != ''){ #add word one at a time to word block
+      words_bl = paste(words_bl,'+',word, sep='') # 
+    }else { # the first one
+      words_bl = word 
     }
   }
-  return(words_bl)
-
+  return(words_bl) # spit it out
 }
-  
+
+## filter_nwt()
+# this function removes any data that isn't from the niwot ridge lter 
+# -improve
+# I think maybe make this optional at some point, but I'm not sure if 
+# I should do that in this function or a higher level one (batch_search())
 filter_nwt = function(df){
-  df = df[grep('nwt', df$packageid),]
-  return(df)
+  df = df[grep('nwt', df$packageid),] # just make sure nwt is in the packageid
+  return(df) # give it to me
 }
 
+## get_data()
+# here this does the actual retrieval of the data list. 
+# Uses the xml package to parse a system curl, then make a data frame 
+# from the xml that is retrieved
 get_data = function(keywords){
-  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=",keywords,"\\&fl=title,packageid,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
-  
-  test.biz <- xmlParse(system(curl_call,intern=T))
-  
-  
-  if(length(xpathSApply(test.biz, "//title", xmlValue))){
-    test.df <- xmlToDataFrame(test.biz)
-    test.df = filter_nwt(test.df)
-    
-  } else {
-    test.df = as.data.frame(matrix(nrow = 0, ncol = 5))
-    colnames(test.df) = c("title", "packageid", "begindate", "enddate", "spatialcoverage")
-  }
-  
-  return(test.df)
-  
+  curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=", # paste the keywords into the system command
+                      keywords,
+                      "\\&fl=title,packageid,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+  test.biz <- xmlParse(system(curl_call,intern=T)) # curl that bad boy and get some XML
+  if(length(xpathSApply(test.biz, "//title", xmlValue))){ #search for title nodes in the data frame to make sure some exist.
+    test.df <- xmlToDataFrame(test.biz) # XML to data frame (its in the name)
+    test.df = filter_nwt(test.df) # make sure that they are alllll nwt. 
+    } else { # no titles? no problem. Empty data frame
+      test.df = as.data.frame(matrix(nrow = 0, ncol = 5)) # boom. empty data frame.  
+      colnames(test.df) = c("title", "packageid", "begindate", "enddate", "spatialcoverage") # boom. names.
+      }
+    return(test.df) # boom. spit it back out. 
   }
 
-
+## filter_exactmatch() 
+# this function is just used if you want to get only data that has the exact search words in it
+# used inside conditional in batch_search()
 filter_exactmatch = function(search, vect, df){
-  filter_df = as.data.frame(matrix(nrow = 0, ncol = dim(df)[2]))
-  colnames(filter_df) = colnames(df)
-  for(k in 1:length(search)){
-    match = df[grep(search[k], vect)]
-    filter_df = rbind(filter_df, match)
+  filter_df = as.data.frame(matrix(nrow = 0, ncol = dim(df)[2])) # make a data frame to put matches in 
+  colnames(filter_df) = colnames(df) # name the columns the same as input df
+  for(k in 1:length(search)){ # loop through keywords 
+    match = df[grep(search[k], vect)] # check title for keyword[i]
+    filter_df = rbind(filter_df, match) # add it to the data frame if it matches
   }
-  return(fitler_df)
+  return(fitler_df) # 100% filtered data frame, brought straight to you. 
 }
 
 
-## batch_pull
-# this function will search for keywords on the Niwot EDI portal. It wraps scrape to search the html.
+## batch_seach()
+# this function will search for keywords on the Niwot EDI portal.
 # You can use a filter (argument: filter = TRUE) to make sure that the words you search are in the title of the data set
-# currently there are issues with data sets not having column names. I've added a fix so data isn't the column name but,
-# there might be a better solution 
-
-batch_search = function(search = c("Saddle", "Composition"), filter = FALSE) {
+# -improve 
+# I want to filter out non-csv's here so that it isn't confusing between the view - download 
+batch_search = function(search = c("Saddle", "Composition"), filter = FALSE) { 
   study_ids = get_data(make_keywords(search)) # find the data sets
-  if (filter == TRUE){
+  if (filter == TRUE){ # if you want exact matches use that function here 
     study_ids = filter_exactmatch(search, study_ids$title, study_ids)
-  }
-  
-  
-  
-  
-  return(study_ids)
-  
+  } 
+  return(study_ids) # this is the list of data - just info. no actual data yet. 
 }
 
-
+## batch_pull()
+# this uses the info from batch_search to actually download the data. This is a slow step so 
+# I've sort of modulated it into making sure you only download stuff after you have looked at it. 
 batch_pull = function(study_ids){
-  
   full_url = c()
   final_studies = c()
-  
   iter = 1
   for(i in 1:length(study_ids$packageid)){
     
@@ -115,24 +116,24 @@ batch_pull = function(study_ids){
     tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
     cn = colnames(tmp_csv) # get column name to check if they are there at all
     
-    if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
-      warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
-      missing_data = rep(NA, length(cn)) # place holder df to be the new first row
-      
-      missing_data <- as.data.frame(matrix(missing_data, nrow = 1, ncol = length(missing_data)), byrow = TRUE)
-      colnames(tmp_csv) <- colnames(missing_data)
-      tmp_csv = rbind(missing_data, tmp_csv)
-      
-      for(c in 1:length(cn)){
-        if(str_detect(cn[c], "[[:digit:]]")){
-          tmp_value = gsub("[[:alpha:]]","", cn[c])
-          suppressWarnings(tmp_csv[1,c] <- as.numeric(tmp_value))
-        } 
-        else {
-          suppressWarnings(tmp_csv[1, c] <- as.character(cn[c]))
-        }
-      }
-    }
+    # if (substr(cn,0, 1)[1] == "X" | any(grepl(cn[1], tmp_csv[,1]))){ # check for X meaning numeric in any of column names. (This is likely if there is no column names)
+    #   warning(paste("Data set: ", "[",final_studies[i], "]", "has unkown column names")) # warn ya
+    #   missing_data = rep(NA, length(cn)) # place holder df to be the new first row
+    #   
+    #   missing_data <- as.data.frame(matrix(missing_data, nrow = 1, ncol = length(missing_data)), byrow = TRUE)
+    #   colnames(tmp_csv) <- colnames(missing_data)
+    #   tmp_csv = rbind(missing_data, tmp_csv)
+    #   
+    #   for(c in 1:length(cn)){
+    #     if(str_detect(cn[c], "[[:digit:]]")){
+    #       tmp_value = gsub("[[:alpha:]]","", cn[c])
+    #       suppressWarnings(tmp_csv[1,c] <- as.numeric(tmp_value))
+    #     } 
+    #     else {
+    #       suppressWarnings(tmp_csv[1, c] <- as.character(cn[c]))
+    #     }
+    #   }
+    # }
 
     
     file_info = system(paste0("curl --head ",full_url[i]), intern = T)
@@ -375,4 +376,6 @@ timeline2 = function(df){
   
 }
 
-x = batch_search(c("dfasdfasdf"))
+x = batch_search(c("Soil", "Texture"))
+y = batch_pull(x)
+
