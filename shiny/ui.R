@@ -44,7 +44,7 @@ fluidPage(
                  ),
                  fluidRow(
                    column(width = 6,
-                          selectInput("plotting1",label = "", choices = ""), style = 'margin:0px;'),
+                          selectInput("plotting1",label = "", choices = ""), style = 'margin:0px; color: blue;'),
                    column(width = 6,
                           selectInput("plotting2",label = "", choices = ""), style = 'margin:0px;'), style = "margin:-10px;"
                    
@@ -55,7 +55,7 @@ fluidPage(
                          h3("Download", style = "margin:0px;margin-top:2px;")
                   ),
                   column(2,
-                         downloadButton("download", ""), style = "width:100px;margin-left:90px;" 
+                         uiOutput("downloadbutton"), style = "width:100px;margin-left:90px;" 
                   )
                 ),
                 fluidRow(

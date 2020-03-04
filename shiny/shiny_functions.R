@@ -1,9 +1,15 @@
+## Shiny Functions ##
+#-------------------#
+
+# These are functions to run teh shiny niwot app. IT helps dowload and view data. 
+# Check for ways to help by searching for the "-improve" flag. 
+
+## Load pacakges 
 library(stringr)
 library(XML)
 library(DT)
 library(plotly)
 library(maps)
-
 
 ## make_keywords()
 # this function makes the keyewords you are searching into the proper format
@@ -38,7 +44,7 @@ filter_nwt = function(df){
 get_data = function(keywords){
   curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=", # paste the keywords into the system command
                       keywords,
-                      "\\&fl=title,packageid,begindate,enddate,coordinates\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+                      "\\&fl=title,packageid,begindate,enddate,coordinates,cite\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
   test.biz <- xmlParse(system(curl_call,intern=T)) # curl that bad boy and get some XML
   if(length(xpathSApply(test.biz, "//title", xmlValue))){ #search for title nodes in the data frame to make sure some exist.
     test.df <- xmlToDataFrame(test.biz) # XML to data frame (its in the name)
@@ -110,9 +116,13 @@ batch_pull = function(study_ids){
   data_index = 1 # Index incase there are multiple data sets or we filter one out of the loop
   
   ## Loop through, I think I could add  this to the earlier loop but I'm not sure yet. TBD look at Thursday
+  # plot.new()
+  # print(length(full_url))
+  # plot.window(xlim = c(0,length(full_url)), ylim = c(0,1))
+  
+  
   for(i in 1:length(full_url)){
-    
-    
+    #rect(xleft = i - 0.95, xright = i - 0.05, ybottom = 0, ytop = 1, fill)
     tmp_csv = read.csv(full_url[i], stringsAsFactors = TRUE) # Read in csv for some QA/Qc
     cn = colnames(tmp_csv) # get column name to check if they are there at all
     
@@ -150,73 +160,89 @@ batch_pull = function(study_ids){
   
 }
 
+## get_colors()
+# this function is for the old, non plotly graphs to get a list of okay colors
+# I need to change this to pull the virdis plasma colors or whatever we end up wanting.
+# -improve
+# switch to be useful w/ plotly
 get_colors = function(n){
-  color = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
-  colors_touse = sample(color, n)
+  color = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)] # get no gra/ey
+  colors_touse = sample(color, n) # get number of colors 
   return(colors_touse)
 }
 
+## timeline()
+# this function is pre plotly, it will sort date vectors and plot them with their title.
+# It is pretty cool but the plotly is better. Probabbly remove this at some point. 
 timeline = function(begin_vect, end_vect, label_vect, colors_touse){
-  
 
-  begin_vect = as.Date(begin_vect)
-  end_vect = as.Date(end_vect)
+  begin_vect = as.Date(begin_vect) # make sure it is date
+  end_vect = as.Date(end_vect) # make sure it is date
   
-  
-  in_order = order(begin_vect)
-
-  begin_vect = begin_vect[in_order]
-  end_vect = end_vect[in_order]
+  in_order = order(begin_vect) # get the order indices from the first vector
+  begin_vect = begin_vect[in_order] # sort all vectors by those indices ^
+  end_vect = end_vect[in_order] 
   label_vect = label_vect[in_order]
   
-  not_na = is.na(begin_vect)
-  begin_vect = begin_vect[!not_na]
+  not_na = is.na(begin_vect) # get rid of nas 
+  begin_vect = begin_vect[!not_na] 
   end_vect = end_vect[!not_na]
   label_vect = label_vect[!not_na]
-  
-  
-  plot(1:length(begin_vect) ~ begin_vect, 
-       bty = "n",
+
+
+  plot(1:length(begin_vect) ~ begin_vect, # this plots points at each of the start dates
+       bty = "n", # plot formatting 
        yaxt = "n",
-       pch = 19, 
-       cex = 1.1, 
+       pch = 19,
+       cex = 1.1,
        ylim = c(0, length(begin_vect) + 1),
        ylab = "",
        xlim = c(min(begin_vect), max(end_vect) + 6000),
        xlab = "Date",
        cex.axis = 1.2,
        cex.lab = 1.4)
+
+  abline(v = as.Date(c("1960-01-01", "1980-01-01",  # add gridlines 
+                       "2000-01-01", "2020-01-01", 
+                       "1970-01-01", "1990-01-01", 
+                       "2010-01-01", "2030-01-01")), 
+        col = rgb(0.1, 0.1, 0.1, 0.3), lwd = 2)
+  abline(v = as.Date(c("1965-01-01", "1985-01-01", # add more gridlines 
+                       "2005-01-01", "2025-01-01", 
+                       "1975-01-01", "1995-01-01", 
+                       "2015-01-01")), 
+         col = rgb(0.1, 0.1, 0.1, 0.2), lwd = 1, lty = 2)
   
-  abline(v = as.Date(c("1960-01-01", "1980-01-01", "2000-01-01", "2020-01-01", "1970-01-01", "1990-01-01", "2010-01-01", "2030-01-01")), col = rgb(0.1, 0.1, 0.1, 0.3), lwd = 2)
-  abline(v = as.Date(c("1965-01-01", "1985-01-01", "2005-01-01", "2025-01-01", "1975-01-01", "1995-01-01", "2015-01-01")), col = rgb(0.1, 0.1, 0.1, 0.2), lwd = 1, lty = 2)
-  points(1:length(begin_vect) ~ end_vect, pch = 19, cex = 1.1)
-  
-  for(i in 1:length(begin_vect)){
+  points(1:length(begin_vect) ~ end_vect, pch = 19, cex = 1.1) # end date points 
+
+  for(i in 1:length(begin_vect)){ # plot pretty rectangels and titles for each one. 
     rect(xleft = begin_vect[i], xright = end_vect[i], ybottom = i - 0.5, ytop = i + 0.5, col = alpha(colors_touse[i], 0.5))
     text(x = end_vect[i] + 1, y = i, labels = label_vect[i], pos = 4, cex = 1)
-
   }
-  
-  
-  
 }
 
+## map_emall()
+# this filters the spaital coverage field to only return sensible bounding boxes.
+# PEOPLE PUT DATA IN WRONG AND THEN YOU CANT STRSPLIT UGH
+# example of stupid : 40.3242-105.453232 (WHY NO SPACE???)
+# -improve
+# make bounding boxes from list of plot points 
 map_emall = function(df){
-  geo_list <- as.character(df$spatialCoverage)
-  bb.frame = as.data.frame(matrix(nrow = 0, ncol = 5))
-  colnames(bb.frame) = c("Easting", "Westing", "Northing", "Southing", "title")
+  geo_list <- as.character(df$spatialCoverage) # convet the factor to char
+  bb.frame = as.data.frame(matrix(nrow = 0, ncol = 5)) # make empty storage frame
+  colnames(bb.frame) = c("Easting", "Westing", "Northing", "Southing", "title") # make sensible column names 
   
-  for(i in 1:length(geo_list)){
-    split_coords = unlist(strsplit(geo_list[i], split = " "))
-    split_coords = sort(split_coords)
-    if (length(split_coords) == 4){
+  for(i in 1:length(geo_list)){ # loop through all "coordinates" haha
+    split_coords = unlist(strsplit(geo_list[i], split = " ")) # split them
+    split_coords = sort(split_coords) # sort them
+    if (length(split_coords) == 4){ # if there are coords (representing bbox) then keep em 
       bb.frame[nrow(bb.frame) + 1, "Easting"] = as.numeric(split_coords[1])
       bb.frame[nrow(bb.frame), "Westing"] = as.numeric(split_coords[2])
       bb.frame[nrow(bb.frame), "Northing"] = as.numeric(split_coords[4])
       bb.frame[nrow(bb.frame), "Southing"] = as.numeric(split_coords[3])
       bb.frame[nrow(bb.frame), "title"] = as.character(df$title[i])
       
-    } else {
+    } else { # deal with this later. I'm not sure what to do about shit coordinates yet. 
       #print(split_coords)
     }
     
@@ -226,6 +252,11 @@ map_emall = function(df){
   
 }
 
+## clip_titles()
+# this will make titles nicer for dispalying on graphs. Right now it just clips 
+# off the year since that feels redundant on the timeline. 
+# -improve
+# add more prettieness to titles (unclear what that means right now)
 clip_titles = function(title_vect){
   clipped_titles = NULL
   for (i in title_vect) {
@@ -235,58 +266,56 @@ clip_titles = function(title_vect){
     return(clipped_titles)
 }
 
-
+## make_bbox()
+# It makes a nicer data frame for plotting rectangles in plotly
+# its moslty needed because idk how plotly works 
 make_bbox = function(df){
-  final_bbox = as.data.frame(matrix(nrow = 0, ncol = 4))
-  colnames(final_bbox) = c('Easting', 'Northing', 'color', 'title')
+  final_bbox = as.data.frame(matrix(nrow = 0, ncol = 4)) # holder df
+  colnames(final_bbox) = c('Easting', 'Northing', 'color', 'title') #name them! 
   
-  
-    
-  for(i in 1:nrow(df)){
+  for(i in 1:nrow(df)){ # loop through the row and give back an expanded df with each corner
     
     bbox = as.data.frame(matrix(nrow = 5, ncol = 4))
     colnames(bbox) = c('lon', 'lat', 'color', 'title')
-    bbox[1,1] = c(df[i,1])
-    bbox[2,1] = c(df[i,2])
-    bbox[4,1] = c(df[i,1])
-    bbox[3,1] = c(df[i,2])
-    bbox[5,1] = c(df[i,1])
+    bbox[1,1] = c(df[i,1]) # corner 1x
+    bbox[2,1] = c(df[i,2]) # corner 2x
+    bbox[4,1] = c(df[i,1]) # corner 3x
+    bbox[3,1] = c(df[i,2]) # corner 4x
+    bbox[5,1] = c(df[i,1]) # corner 1x
     
-    bbox[1,2] = c(df[i,3])
-    bbox[2,2] = c(df[i,3])
-    bbox[4,2] = c(df[i,4])
-    bbox[3,2] = c(df[i,4])
-    bbox[5,2] = c(df[i,3])
+    bbox[1,2] = c(df[i,3]) # corner 1y
+    bbox[2,2] = c(df[i,3]) # corner 2y
+    bbox[4,2] = c(df[i,4]) # corner 3y
+    bbox[3,2] = c(df[i,4]) # corner 4y
+    bbox[5,2] = c(df[i,3]) # corner 5y 
     
-    bbox$color = as.factor(i)
-    bbox$title = df$title[i]
+    bbox$color = as.factor(i) # give it a color/factor this was for weird plotly colors
+    bbox$title = df$title[i] # store the title for easiest display
     
-    
-    final_bbox = rbind(final_bbox, bbox)
+    final_bbox = rbind(final_bbox, bbox) # nice bounding box with colr and title attached
   }
-  
-
- 
     return(final_bbox) 
 }
 
-
-
-#######################
-
-
-make_map = function(y){
+## make_mape()
+# this function needs the data frame output by map_emall
+# with the coordiantes split to East West North and South
+# It makes a plotly map with a geographic background
+# could make prettier. 
+# -improve
+# Make it so timeline colors match map colors. 
+make_map = function(y){  
   
-  dat = map_data('county')
-  dat = dat %>% filter(region == 'colorado')
+  ## This step isnt needed anymore but if we ever want a map polygon of CO. idk
+  dat = map_data('county') # get county level map data. 
+  dat = dat %>% filter(region == 'colorado') # remove everything but CO
   dat = dat %>% filter(subregion %in% 'boulder')
-  colors = viridis::plasma(nrow(y), alpha = 0.5)
+  colors = viridis::plasma(nrow(y), alpha = 0.5) # generate colors 
   
-  y2 = make_bbox(y)
-  y2 = y2 %>% group_by(color)
+  y2 = make_bbox(y) # convet to bounding boxes. 
+  y2 = y2 %>% group_by(color) # I'm not sure if this does anything but, I think its important. Group by pseudo group indicator
   
-  
-  fig <- plot_ly(y2,
+  fig <- plot_ly(y2,                    # this plots all the rectangles! yay
                  mode = 'lines',
                  text = ~title,
                  fill = 'toself',
@@ -299,7 +328,7 @@ make_map = function(y){
                  opacity = 0.2)
 
  
-  fig <- fig %>% layout(
+  fig <- fig %>% layout( # make it prettier/center the map on CO (data points)
           mapbox = list(
             data = y2,
             style = "carto-positron",
@@ -307,20 +336,18 @@ make_map = function(y){
             zoom = 11),
           showlegend = FALSE)  
       
-      
-  
-
-  
   return(fig)
   
 }
 
+## timeline2 
+# plotly version of making a timeline. 
+# this looks good. Hover over points to see the title
 timeline2 = function(df){
   
-  print(df$begindate)
-  df$title = clip_titles(df$title)
+  df$title = clip_titles(df$title) # make titles slightly nicer 
   
-  ax <- list(
+  ax <- list( # define style for axis later
     title = "",
     zeroline = FALSE,
     showline = FALSE,
@@ -329,16 +356,16 @@ timeline2 = function(df){
   )
   
   
-  colors = viridis::plasma(nrow(df), alpha = 0.5)
+  colors = viridis::plasma(nrow(df), alpha = 0.5) # get colors 
   
-  df = df[df$begindate != "", ]
+  df = df[df$begindate != "", ] # remove any with missing dates. 
   
-  df = df[order(df$begindate),]
-  names = colnames(df)
-  df = cbind(df, seq(1:nrow(df)))
-  colnames(df) = c(names, 'index')
+  df = df[order(df$begindate),] # sort by start date 
+  names = colnames(df) # get names to rename columns later. 
+  df = cbind(df, seq(1:nrow(df))) # add index which will be the ~y coordinate
+  colnames(df) = c(names, 'index') # rename with old names + index
   
-  fig = plot_ly(data = df,
+  fig = plot_ly(data = df, # start the plot, this just does the begindate points
           type = 'scatter',
           x = ~begindate,
           y = ~index,
@@ -349,16 +376,16 @@ timeline2 = function(df){
           color = I("black")
           )
   
-  fig = fig %>% add_markers(x = ~as.Date(enddate),
+  fig = fig %>% add_markers(x = ~as.Date(enddate), # add enddate points 
                             y = ~index,
                             showlegend = FALSE,
                             size = I(75),
                             hoverinfo = 'none',
                               color = I("black"))
   
-  shapes = list()
-  for(i in 1:nrow(df)){
-    
+  shapes = list() # empty list for the bars/rectangles 
+  for(i in 1:nrow(df)){ # make all the rectangles! they are stored in a list and then accessed in layout()
+                          
     shapes[[i]] = list(type = "rect",
                               fillcolor = colors[i], line = list(color = "black"), opacity = 0.9,
                               x0 = df[i, 'begindate'], x1 = df[i, 'enddate'], xref = "x",
@@ -368,14 +395,41 @@ timeline2 = function(df){
                         
   }
   
-  fig = fig %>% layout(yaxis = ax,
+  fig = fig %>% layout(yaxis = ax, # add the rectangles 
                        xaxis = list(title = "Date"),
                        shapes = shapes)
   
-  fig
+  return(fig)
   
 }
 
-x = batch_search(c("Soil", "Texture"))
-y = batch_pull(x)
+## hist_plot()
+# This is just a wrapper for plotly histogram so I don't have to put it in
+# the server.R file looks good though. Sets som standard colors 
+hist_plot = function(hist_vect, title, color){
+  
+  if (color == 1){    # define color for input 1 or 2 
+    cc = rgb(0.1, 0.4, 0.1, 0.3)
+  } else if (color == 2){
+    cc = rgb(0.1, 0.1, 0.4, 0.3)
+  }
+  
+  fig = plot_ly(alpha = 0.6, showlegend = FALSE) # initalize plotly
+  fig = fig %>% add_histogram(x = ~hist_vect,    # add the histogram
+                              marker = list(color = cc), 
+                              alpha = 0.5)
+  fig = fig %>% layout(xaxis = list(title = ~title), showlegend = FALSE) # change axis and remove lgend
+  return(fig)
+}
+
+## scatter_plot()
+# much like hist_plot() this just packages the plotly scatter into one line
+# for server.R makes a scatter plot of 2 selected variables 
+scatter_plot = function(vect1, vect2, titlex, titley){
+  fig = plot_ly(alpha = 0.6)
+  fig = fig %>% add_markers(x = ~vect1, y = ~vect2, size = 5, marker = list(color = rgb(0.1, 0.4, 0.4, 0.3)))
+  fig = fig %>% layout(xaxis = list(title = ~titlex),
+                       yaxis = list(title = ~titley))
+  return(fig)
+}
 
