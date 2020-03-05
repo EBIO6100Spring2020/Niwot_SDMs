@@ -69,7 +69,6 @@ filter_exactmatch = function(search, vect, df){
   return(fitler_df) # 100% filtered data frame, brought straight to you. 
 }
 
-
 ## batch_seach()
 # this function will search for keywords on the Niwot EDI portal.
 # You can use a filter (argument: filter = TRUE) to make sure that the words you search are in the title of the data set
@@ -433,3 +432,7 @@ scatter_plot = function(vect1, vect2, titlex, titley){
   return(fig)
 }
 
+
+
+curl_call <- paste0("curl -X GET https://pasta.lternet.edu/citation/eml/", "knb-lter-nwt.50.1", sep = "")
+system(curl_call)
