@@ -44,7 +44,7 @@ filter_nwt = function(df){
 get_data = function(keywords){
   curl_call <- paste0("curl -X GET https://pasta.lternet.edu/package/search/eml?defType=edismax\\&q=", # paste the keywords into the system command
                       keywords,
-                      "\\&fl=title,packageid,begindate,enddate,coordinates,cite\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
+                      "\\&fl=title,packageid,begindate,enddate,coordinates,doi\\&sort=score,desc\\&sort=packageid\\&start=0\\&rows=100")
   test.biz <- xmlParse(system(curl_call,intern=T)) # curl that bad boy and get some XML
   if(length(xpathSApply(test.biz, "//title", xmlValue))){ #search for title nodes in the data frame to make sure some exist.
     test.df <- xmlToDataFrame(test.biz) # XML to data frame (its in the name)
@@ -68,7 +68,6 @@ filter_exactmatch = function(search, vect, df){
   }
   return(fitler_df) # 100% filtered data frame, brought straight to you. 
 }
-
 
 ## batch_seach()
 # this function will search for keywords on the Niwot EDI portal.
@@ -433,3 +432,8 @@ scatter_plot = function(vect1, vect2, titlex, titley){
   return(fig)
 }
 
+
+
+# curl_call <- paste0("curl -X GET https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-nwt/")
+# system(curl_call)
+# read_html("https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-nwt.93.3")

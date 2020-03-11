@@ -1,82 +1,98 @@
 library(shiny)
-source("shiny_functions.R")
+library(shinyBS)
 
-fluidPage(
-  sidebarLayout(
-    sidebarPanel(
-                h3("Niwot Data Utility", style = "margin:0px;height:50px;text-align:center;padding:10px 0;border-radius:5px;"),
-                hr(style = 'margin:0px'),
-                 fluidRow(
-                   column(1,
-                          textInput("search", label = ""), style = 'width:340px; margin:0px'
-                   )
-                 ),
-                 fluidRow(
-                   column(2,
-                          actionButton("go", label = "Search"), style = "width:80px;"
+shinyUI(fluidPage(
+        
+        bsTooltip("search", "Enter key words for data", placement = "bottom", trigger = "hover",
+            options = NULL),
+        
+        bsTooltip("go", "Search for your key words", placement = "bottom", trigger = "hover",
+                  options = NULL),
+        
+        bsTooltip("load", "Load selected datasets to browse", placement = "bottom", trigger = "hover",
+                  options = NULL),
+        
+        navbarPage(title = "Niwot Data Utility",
+                   collapsible = TRUE,
+                   selected = "Search",
+                   id = "x1",
+        
+                   
+          tabPanel(title = "Search",
+                   fluidRow(
+                     column(1,textInput(label = "", inputId = "search", placeholder = "e.g. Soil Texture"), style = "width:100vw;"),
+                     style = "width:100vw"
                    ),
-                   column(1,
-                          checkboxInput("filter", label = "Exact match"), style = "width:150px;margin-left:20px;"    
-                   ) 
-                 ),
-
-                 hr(style = "margin:5px; margin-top:10px;"),
-                 fluidRow(
-                   column(1,
-                          h3("View", style = "margin:0px;")),
-                   column(2,
-                          actionButton("View", label = "View"), style = 'margin-left:30px;'),
-                   column(3,
-                          actionButton("collapse1", label = "", icon = icon("icon/collapse.pngve")))
+                   fluidRow(
+                     column(1, actionButton("Search", inputId = "go"), align = "left", style = "width:5vw"),
+                     column(2, uiOutput(outputId = "lb"), align = "left", style = "width:100px; position: absolute; left: 120px;")
+                   ),
                    
-                 ),
-                 fluidRow(
-                   column(1,
-                          checkboxGroupInput("to_view", label = "Select Data sets to view", choices = c()), style = "width:340px; margin-top:10px;" 
+                   hr(),
+                   
+                   fluidRow(
+                     column(1, plotlyOutput(outputId = "c1"), style = "width: 45vw"),
+                     column(2, plotlyOutput(outputId = "c2"), style = "width: 45vw")
+                   ),
+                   
+                   fluidRow(
+                     column(1, checkboxGroupInput(inputId = "to_view", label = "",choices = c()), style = "width:25vw;"),
+                     column(2, tableOutput(outputId = "t1"), style = "width:65vw;")
                    )
                  ),
-                 fluidRow(
-                   column(1, 
-                          actionButton("Prev", label = "Previous Dataset"), style = 'margin-right:10px; width:120px;', value = 1),
-                   column(2,
-                          actionButton("Next", label = "Next Dataset"), style = 'margin-left:10px; width:120px;', value = 1), style = 'margin-top:10px;'
+          tabPanel(title = "View",
+                   fluidRow(
+                     column(1, actionButton(inputId = "Prev", label = "Previous Dataset"), style = "width: 205px"),
+                     column(2, actionButton(inputId = "Next", label = "Next Dataset"), style = "width: 205px")
+                   ),
+                   fluidRow(
+                     column(1, selectInput(inputId = "p1", label = "", choices = c()), style = "width: 205px"),
+                     column(2, selectInput(inputId = "p2", label = "", choices = c()), style = "width: 205px")
+                   ),
+                   
+                   hr(),
+                   
+                   fluidRow(
+                     column(1, plotlyOutput(outputId = "c3"), style = "width: 45vw"),
+                     column(2, plotlyOutput(outputId = "c4"), style = "width: 45vw")
+                   ),
+                   
+                   fluidRow(align = 'center',
+                     column(1, tableOutput(outputId = "t2"), style = "width:90vw;")
+                   )
                    
                  ),
-                 fluidRow(
-                   column(width = 6,
-                          selectInput("plotting1",label = "", choices = ""), style = 'margin:0px; color: blue;'),
-                   column(width = 6,
-                          selectInput("plotting2",label = "", choices = ""), style = 'margin:0px;'), style = "margin:-10px;"
+          tabPanel(title = "Download",
+                   fluidRow(
+                     column(1,downloadButton(outputId = "dl", label = "Download"))
+                   ),
                    
-                 ),
-                hr(style = "margin:5px;margin-top:10px;"),
-                fluidRow(
-                  column(1,
-                         h3("Download", style = "margin:0px;margin-top:2px;")
-                  ),
-                  column(2,
-                         uiOutput("downloadbutton"), style = "width:100px;margin-left:90px;" 
-                  )
-                ),
-                fluidRow(
-                  column(1,
-                         checkboxGroupInput("to_dl", label = "Select Data sets to download", choices = c()), style = "width:340px; margin-top:10px" 
-                  )
-                ),
-                 style = 'width:350px;background-color:lightgray; height:98vh; position:fixed;;box-sizing:content-box;overflow-y:scroll'
-                 
-    ),
-    absolutePanel(left = 450,
-      fluidRow(
-        plotlyOutput("hist1"),
-        plotlyOutput("map1")
-      ),
-      fluidRow(
-               dataTableOutput("t1")),
-
-              style = 'width:800px;margin-left:19px;z-index:-1;'), fluid = FALSE
+                   hr(),
+                   
+                   fluidRow(
+                     column(1, checkboxGroupInput(inputId = "to_dl", label = "",choices = c()), style = "width:50vw")
+                   )
+                            
+                 ), 
+          tags$head(tags$style("#search{color: gray;font-size: 1.1em;font-style: italic; border-radius: 1px;width: 35vw;}", 
+                               "#go{color:gray; border-radius: 1px; font-style: bold; font-size: 1.1em; width:100px}",
+                               "#load{color:gray; border-radius: 1px; font-style: bold; font-size: 1.1em; width:100px;}",
+                               "#to_view{color:gray; border-radius: 1px;}",
+                               "#dl{border-radius: 1px; color: gray}",
+                               "#to_dl{width:50vw; left-margin:25vw}",
+                               "* {font-family: Tahoma, Geneva, sans-serif; !important;}",
+                               ".navbar{height: 50px;font-size:1.1em;}",
+                               ".selectize-input {border-radius:0px; width: 200px; color:gray}",
+                               "#Next{width:200px;color:gray;border-radius:1px;font-size:1.1em}",
+                               "#Prev{width:200px;color:gray;border-radius:1px;font-size:1.1em}",
+                               ".checkbox-input {transform: scale(3);border-radius:1px;}"
+                               )
+      )
+    ) 
   )
 )
+
+
 
 
 
