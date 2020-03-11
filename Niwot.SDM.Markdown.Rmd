@@ -1,0 +1,156 @@
+---
+title: "Niwot SDM Write-up"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+#load("niwot composition.Rdata")
+
+#this chunk of code reads in our various data files. For now we just have our abiotic data - soil texture, soil moisture,
+#some topographical data for a the saddle grid, and then coordinates for our vegetation survey plots. 
+library(dplyr)
+library(rgdal)
+library(ggplot2)
+library(tidyr)
+library(plotly)
+library(maps)
+library(geoR)
+#read in our moisture and texture data
+#setwd("/Users/aaronwestmoreland/Desktop/Project/Niwot_SDM/Niwot_SDMs")
+soil_texture_saddle <- read.csv("Saddle.Data.work/Soil_texture_for_Saddle_Stream_Network.csv")
+soil_moisture_saddle <- read.csv("Saddle.Data.work/sdl_soil_moist_temp_surveys_2017.ah.data.csv")
+shpfl <- readOGR("Saddle.Data.work/lter_plots/lter_plots.shp")
+saddle_topo_solar <- read.csv("Saddle.Data.work/saddle_topo_solar.csv")
+
+
+#subset the shapefile for all of Niwot sites down to just those from Diane Ebert-May's vegetation survey
+veg_plots <- shpfl[shpfl@data$PI=="Diane Ebert-May",]
+
+#pull out the coordinates
+coo <- veg_plots@coords
+
+
+#make it a data frame
+coo.df <- as.data.frame(coo)
+#reorder the columns so they're the same as our moisture and texture datasets
+coo.df <- coo.df[,c(2,1)]
+
+
+#pull coords from our moisure and texture data sets, also create a variable called origin to keep track of which 
+#dataset each point comes from
+
+#we have repeat sampling at sites within our moisture and texture data, so i just pull unique lat-long pairs
+moisture_coords_df <- unique(soil_moisture_saddle[,7:8])
+moisture_coords_df$origin <- "moisture"
+texture_coords_df <- unique(soil_texture_saddle[,4:5])
+texture_coords_df$origin <- "texture"
+coo.df$origin <- "Ebert-May"
+
+#rename columns in coo.df to be the same as our moisture and texture data. probably not necessary but nice I guess.
+names(coo.df) <- names(moisture_coords_df)
+
+#topo has a lot of repeated sampling at sites, so we pull just unique combos of lat long
+topo_coords <- unique(saddle_topo_solar[,2:1])
+topo_coords$origin <- "topo"
+all_points_bulletin <- rbind(moisture_coords_df,texture_coords_df,coo.df)
+all_points_bulletin$origin <- as.factor(all_points_bulletin$origin)
+
+names(topo_coords) <- names(all_points_bulletin)
+
+
+
+total_saddle <- rbind(all_points_bulletin,topo_coords)
+fig <- plot_ly(total_saddle,                    
+               mode = 'scatter',
+               text = ~origin,
+               fill = ~origin,
+               type = 'scattermapbox',
+               hoverinfo = 'text',
+               lon =  ~longitude,
+               lat =  ~latitude,
+               color=~origin,
+               opacity = 0.8,
+               size = 17)
+
+fig <- fig %>% layout(
+  mapbox = list(zoom=14.25, #zoom in on our actual points
+                data = total_saddle,
+                style = "carto-positron",
+                center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+                zoom = 11),
+  showlegend = FALSE)  
+
+
+```
+
+## Map of data points
+
+Below is a map of the data we are looking at so far. Pink points are a grid of topographical, abiotic, and plant community surveys. Green dots come from a vegetation survey spanning 40 years, in 1971, '91, 2001, and 2011. Purple dots are soil moisture and texture locations from data collected by Anna Hermes in 2017. 
+
+```{r cars, echo=FALSE}
+fig
+```
+
+## Spatial distribution of moisture
+
+We are interested in using soil moisture as a predictor of species distributions among alpine plants, but have limited resources for explicitly paired data (i.e. data for a precise point where we have both moisture and community data). To account for this, we are interested in interpolating a surface of estimated moisture (and evenutally other ecological covariates) to act as a predictor for species presence/absence. Initially we were hoping that these surfaces could be interpolated based on spatial autocorrelation - basically averaging between sampled points with kriging. So as an initial exploration, we've got a map below showing how moisture is distributed across the 2017 data. (Note that this is across all of our survey dates, so we lose temporal resolution with this map. Plotting all survey dates is feasible, but difficult to pull off in markdown)
+
+
+```{r pressure, echo=FALSE, warning=FALSE}
+
+  temp<- plot_ly(soil_moisture_saddle,
+                      mode='scatter',
+                      text=~soil_moist_vol_avg,
+                      fill=~soil_moist_vol_avg,
+                      type='scattermapbox',
+                      lon=~longitude,
+                      lat=~latitude,
+                      color=~soil_moist_vol_avg,
+                      opacity=0.8)%>%
+    hide_colorbar()
+  
+  
+  
+    temp <- temp%>%layout(
+    mapbox = list(zoom=14.25, #zoom in on our actual points
+                  data = soil_moisture_saddle,
+                  style = "carto-positron",
+                  center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+                  zoom = 11),
+    showlegend = FALSE)  
+    temp
+
+
+
+```
+
+## Soil Texture Map
+
+Along with moisture data, we also have soil texture data for the 2017 survey. So we make a similar map. Here color denotes the qualitative USDA texture designation of the sample, and the hover text tells you the percentage of each soil type (sand, silt, and clay) a given site had. Our sites only had 4 qualtiative designations: Loam (green), Loamy Sand (orange), Sandy Loam (Blue), and Silty Loam (pink). Pink and orange look very similar on this graph, which is unfortunate, but changing color schemes in plotly is, of course, not as easy as it would seem. Stil. Some nice variability.
+
+```{r, echo=F, warning=F}
+  temp2<- plot_ly(soil_texture_saddle,
+                      mode='scatter',
+                      text=~paste("USDA Sand:", USDA_sand,
+                                  "USDA Silt:", USDA_silt,
+                                  "USDA Clay:", USDA_clay),
+                      type='scattermapbox',
+                      lon=~longitude,
+                      lat=~latitude,
+                      color=~USDA_texture,
+                      opacity=0.8)
+  
+  
+    temp2 <- temp2%>%layout(
+    mapbox = list(zoom=14.25, #zoom in on our actual points
+                  data = soil_texture_saddle,
+                  style = "carto-positron",
+                  center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+                  zoom = 11),
+    showlegend = FALSE)  
+    temp2
+
+```
+

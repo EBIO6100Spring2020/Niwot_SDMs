@@ -1,14 +1,338 @@
-setwd("~/Desktop/Project/")
+#MAKE SURE TO SET YOUR WORKING DIRECTORY
+
 library(dplyr)
 library(rstan)
 library(rstanarm)
 library(lme4)
-
+library(rgdal)
+library(ggplot2)
+library(tidyr)
+library(plotly)
+library(maps)
+library(geoR)
+library(ncf)
+library(gstat)
 
 ######## Read in data and process #######
 
 load("niwot composition.Rdata")
 
+#setwd("~/Desktop/Project/")
+#read in our moisture and texture data
+soil_texture_saddle <- read.csv("Soil_texture_for_Saddle_Stream_Network.csv")
+soil_moisture_saddle <- read.csv("sdl_soil_moist_temp_surveys_2017.ah.data.csv")
+shpfl <- readOGR("lter_plots/lter_plots.shp")
+saddle_topo_solar <- read.csv("saddle_topo_solar.csv")
+
+
+
+
+#read in our shapefile
+shpfl <- readOGR("lter_plots/lter_plots.shp")
+summary(shpfl@data)
+
+levels(shpfl@data$PI)
+
+
+
+crs_shp <- shpfl@proj4string
+
+#subset just for the plots surveyed by Diane Ebert-May, since those are the points we're having trouble locating
+oh_diane <- shpfl[shpfl@data$PI=="Diane Ebert-May",]
+
+oh_diane$PROJECT
+
+#pull out the coordinates
+coo <- oh_diane@coords
+
+
+#make it a data frame
+coo.df <- as.data.frame(coo)
+#reorder the columns so they're the same as our moisture and texture datasets
+coo.df <- coo.df[,c(2,1)]
+
+
+#pull coords from our moisure and texture data sets, also create a variable called origin to keep track of which 
+#dataset each point comes from
+
+#we have repeat sampling at sites within our moisture and texture data, so i just pull unique lat-long pairs
+moisture_coords_df <- unique(soil_moisture_saddle[,7:8])
+moisture_coords_df$origin <- "moisture"
+texture_coords_df <- unique(soil_texture_saddle[,4:5])
+texture_coords_df$origin <- "texture"
+coo.df$origin <- "Ebert-May"
+#rename columns in coo.df to be the same as our moisture and texture data. probably not necessary but nice I guess.
+names(coo.df) <- names(moisture_coords_df)
+
+levels(soil_moisture_saddle$survey_start_date)
+
+moisture_by_survey_date <- list()
+geor_list <- list()
+correlog_list <- list()
+variog_list <- list()
+anisotropic_variogram_list <- list()
+
+for(level in levels(soil_moisture_saddle$survey_start_date)){
+  
+  moisture_by_survey_date[[paste(level)]]<- soil_moisture_saddle[,c("latitude","longitude",
+                                                                   "soil_moist_vol_avg","survey_start_date")]%>%
+    na.omit()%>%
+    subset(survey_start_date==level)
+  
+  temp_coords <- cbind(moisture_by_survey_date[[level]]$latitude,moisture_by_survey_date[[level]]$longitude)
+  
+  correlog_list[[paste(level)]] <- pgirmess::correlog(temp_coords,z=moisture_by_survey_date[[level]]$soil_moist_vol_avg,
+                                                      method="Moran",alternative="two.sided",randomisation=T)
+  geor_list[[paste(level)]] <- as.geodata(moisture_by_survey_date[[level]])
+  
+  variog_list[[paste(level)]] <- variog(geor_list[[level]])
+  
+  anisotropic_variogram_list[[paste(level)]] <- variog4(geor_list[[level]])
+  
+  
+  }
+
+plot(correlog_list[[6]])
+#getting through all these plots is a mess, but basically our pattern is somewhat consistent across days, showing negative 
+#spatial autocorrelation at small scales with positive correlation (lower semivariance) with greater distance. Gotta
+#be some kind of covariate to explain this right??
+
+lapply(FUN=plot,X=anisotropic_variogram_list)
+
+
+
+
+
+#pulling out just our first date
+
+just_first_date <- subset(soil_moisture_saddle, survey_start_date=="2017-07-03")
+
+just_first_matrix <- just_first_date[c("latitude","longitude","soil_moist_vol_avg")]
+
+just_first_matrix <- just_first_matrix[!is.na(just_first_matrix$soil_moist_vol_avg),]
+
+just_coor <- just_first_matrix[,c(1,2)]
+
+just_first_corr <- pgirmess::correlog(just_coor,z=just_first_matrix$soil_moist_vol_avg, method="Moran",
+                                alternative="two.sided",randomisation=T)
+plot(just_first_corr)
+
+
+
+
+# full moisture matrix, old work here.
+moisture_matrix <- soil_moisture_saddle[c("latitude","longitude","soil_moist_vol_avg")]
+
+moisture_matrix <- moisture_matrix[!is.na(moisture_matrix$soil_moist_vol_avg),]
+
+coordinates(moisture_matrix) <- c("longitude","latitude")
+proj4string(moisture_matrix) <- CRS("+proj=longlat")
+moisture_matrix<- as.data.frame(spTransform(moisture_matrix,CRS("+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs")))
+
+
+hist(moisture_matrix$soil_moist_vol_avg)
+
+###DOES NOT WORK####
+moisture_correlogram <- ncf::correlog(x=moisture_matrix$longitude,y=moisture_matrix$latitude,
+                                 z=moisture_matrix$soil_moist_vol_avg, increment=0.001,resamp=99,latlon = T)
+
+
+#Pgirmess
+
+moisture_pg_cor <- pgirmess::correlog(coords=coomat, z=moisture_matrix$soil_moist_vol_avg,method = "Moran",
+                                      alternative="two.sided",randomisation=T)
+
+#well that worked at least. And yeah we see correlation across classes up to about 0.015. 
+plot(moisture_pg_cor)
+
+
+unique(c(moisture_matrix$longitude,moisture_matrix$latitude))
+
+lon_lat_mat <- just_first_matrix[,c(2,1,3)]
+
+#worth noting that geodata actually does have a "preferred" order to lat and long, which is long/lat. So make sure you put those
+#in the matrix correctly or else you get a rotated plot which is like...not ideal?
+
+geor_moisture <- as.geodata(lon_lat_mat)
+
+unique(moisture_matrix[,c("latitude","longitude")])
+nrow(moisture_matrix)
+
+uni_moisture <- moisture_matrix[1:291,]
+unique(uni_moisture[,c("latitude","longitude")])
+
+plot(geor_moisture)
+
+coomat <- cbind(moisture_matrix$latitude,moisture_matrix$longitude)
+
+distmat <- as.matrix(dist(coomat))h
+maxdist <- (2/3)*max(distmat)
+
+
+geor_moisture$coords
+
+emp_vario_moist<- variog(geor_moisture)
+
+plot(emp_vario_moist)
+
+#anisotropy check
+
+unique(geor_moisture)
+
+emp4 <- variog4(geor_moisture)
+
+plot(emp4)
+#bind them all together in a dataframe, convert our origin to a factor rather than just chr strings
+
+all_points_bulletin <- rbind(moisture_coords_df,texture_coords_df,coo.df)
+all_points_bulletin$origin <- as.factor(all_points_bulletin$origin)
+
+
+
+
+
+saddle_topo_solar <- read.csv("saddle_topo_solar.csv")
+
+
+topo_coords <- unique(saddle_topo_solar[,2:1])
+topo_coords$origin <- "topo"
+
+names(topo_coords) <- names(all_points_bulletin)
+
+total_saddle <- rbind(all_points_bulletin,topo_coords)
+
+
+dat = map_data('county') # get county level map data. 
+dat = dat %>% filter(region == 'colorado') # remove everything but CO
+dat = dat %>% filter(subregion %in% 'boulder')
+colors = viridis::plasma(length(levels(all_points_bulletin$origin)), alpha = 0.5)
+
+#So the uniform block of points in the center is the moisture and texture grid we have. The weird collection of points
+#at the top is the Diane Ebert-May dataset, the composition survey that runs from 1971-2011. I pulled those points
+#out of the shapefile from the Niwot website. 12 of the vegetative plots have a second adjacent point - a soil analysis
+#done in the 90s by Ebert-May. The other 18 are singletons, and then there are like 6 or so points I have yet to 
+#figure a location for. If you hover over a point it tells you where that comes from, texture/moisture or Ebert-May.
+#Since the moisture and texture datasets have the same locations, you'll only see one label for each.
+
+
+###redo overall map of our sites#####
+#do just the soil moisture data and color it by the moisture. See if there is an obvious negative autocorrelation
+#across space, cuz that's what our variogram and correllogram are showing. That the further
+
+testy_list<- list()
+iter <- 0
+for(level in levels(soil_moisture_saddle$survey_start_date)){
+  iter <- iter+1
+  temp<- plot_ly(moisture_by_survey_date[[level]],
+                      mode='scatter',
+                      text=~soil_moist_vol_avg,
+                      fill=~soil_moist_vol_avg,
+                      type='scattermapbox',
+                      lon=~longitude,
+                      lat=~latitude,
+                      color=~soil_moist_vol_avg,
+                      opacity=0.8)%>%
+    hide_colorbar()
+  
+  
+  
+    temp <- temp%>%layout(
+    mapbox = list(zoom=14.25, #zoom in on our actual points
+                  data = moisture_by_survey_date[[level]],
+                  style = "carto-positron",
+                  center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+                  zoom = 11),
+    showlegend = FALSE)  
+  
+    testy_list[[iter]] <- temp
+  #assign(paste0("fig",iter),temp)
+}
+
+subplot(testy_list,type="mapbox")
+
+testy_list[[1]]$
+
+
+fig <- plot_ly(total_saddle,                    
+               mode = 'scatter',
+               text = ~origin,
+               fill = ~origin,
+               type = 'scattermapbox',
+               hoverinfo = 'text',
+               lon =  ~longitude,
+               lat =  ~latitude,
+               color=~origin,
+               opacity = 0.8)
+
+fig <- fig %>% layout(
+  mapbox = list(zoom=14.25, #zoom in on our actual points
+                data = total_saddle,
+                style = "carto-positron",
+                center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+                zoom = 11),
+  showlegend = FALSE)  
+
+
+fig
+
+
+
+### MAP of our 40 year veg survey and the soil moisture/texture plots #####
+#Stole all your map code from the shiny function cuz I couldnt get plotlys maps to work :(
+#you'll have to zoom in on your own for this but still
+
+
+# dat = map_data('county') # get county level map data. 
+# dat = dat %>% filter(region == 'colorado') # remove everything but CO
+# dat = dat %>% filter(subregion %in% 'boulder')
+# colors = viridis::plasma(length(levels(all_points_bulletin$origin)), alpha = 0.5)
+# 
+# #So the uniform block of points in the center is the moisture and texture grid we have. The weird collection of points
+# #at the top is the Diane Ebert-May dataset, the composition survey that runs from 1971-2011. I pulled those points
+# #out of the shapefile from the Niwot website. 12 of the vegetative plots have a second adjacent point - a soil analysis
+# #done in the 90s by Ebert-May. The other 18 are singletons, and then there are like 6 or so points I have yet to 
+# #figure a location for. If you hover over a point it tells you where that comes from, texture/moisture or Ebert-May.
+# #Since the moisture and texture datasets have the same locations, you'll only see one label for each.
+# 
+# library(wesanderson)
+# pal <- wes_palette(n=3,name="GrandBudapest1")
+# 
+# ###redo overall map of our sites#####
+# #do just the soil moisture data and color it by the moisture. See if there is an obvious negative autocorrelation
+# #across space, cuz that's what our variogram and correllogram are showing. That the further 
+# 
+# fig <- plot_ly(all_points_bulletin,                    
+#                mode = 'scatter',
+#                text = ~origin,
+#                fill = ~origin,
+#                type = 'scattermapbox',
+#                hoverinfo = 'text',
+#                lon =  ~longitude,
+#                lat =  ~latitude,
+#                color=~origin,
+#                opacity = 0.8)
+# 
+# fig <- fig %>% layout(
+#   mapbox = list(zoom=14.25, #zoom in on our actual points
+#     data = all_points_bulletin,
+#     style = "carto-positron",
+#     center = list(lat = ~mean(latitude, na.rm = T), lon = ~mean(longitude, na.rm = T)),
+#     zoom = 11),
+#   showlegend = FALSE)  
+# 
+# 
+# fig
+
+
+#Old non-map plotting here, just points
+# 
+# plot(all_points_bulletin$latitude~all_points_bulletin$longitude)
+# points(soil_moisture_saddle$latitude~soil_moisture_saddle$longitude,bg="cyan",pch=21)
+# points(soil_texture_saddle$latitude~soil_texture_saddle$longitude, bg="magenta",pch=22)
+
+
+
+######## Processing the actual Ebert-May surveys, rather than just GPS points #########
 #There are three datasets for this project. The first is a presence absence dataset, which we won't be using.
 #This is mostly because in 2018 they apparently corrected a bunch of species IDs for the second dataset, but not the 
 #first, so I'm not sure what's correct or outdated now.
@@ -43,6 +367,8 @@ year_plot_sort_2018$just_genus <- gsub("([A-Za-z]+).*", "\\1", year_plot_sort_20
 #no idea how much cover varied within a given plot, just an average over it. Cover is % cover. No word given on 0's here.
 #there might be temporal structure? Like...if we have none in 1971, but then we have it in 1991, but then not in 2001,
 #we might have no record for 71, a cover for 91, and a cover of 0 for 2001? tough to say tbh.
+
+
 
 
 
@@ -232,5 +558,10 @@ unique(old_pres$SPP)
 old_pres$year <- gsub("(\\d{4})_\\d*","\\1",old_pres$PLOT)
 old_pres$plot_id <- gsub("\\d{4}_(\\d*)","\\1",old_pres$PLOT)
 old_pres$plot_id <- as.factor(old_pres$plot_id)
+
+
+
+
+
 
 
