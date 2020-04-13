@@ -3,7 +3,8 @@
 
 library(raster)
 library(dplyr)
-
+library(ggplot2)
+library(rstanarm)
 #I've plotted a lot of these using Diane Ebert May's data, but keep in mind
 #there is no temporal overlap between when the majority of this sensor/Lidar data
 #was collected and when Ebert May's sampling took place. Last Ebert May survey was
@@ -11,10 +12,6 @@ library(dplyr)
 
 setwd("../NEON.Data/NEON_precipitation/")
 
-
-soil_salinity_pos <- read.csv("../NEON_conc-h2o-soil-salinity/NEON.D13.NIWO.DP1.00094.001.2020-02.expanded.20200304T004131Z/NEON.D13.NIWO.DP1.00094.001.sensor_positions.20200304T004131Z.csv")
-#so yeah five locations for soil moisture from these sensors. probably not fine scale enough
-#for our inference.
 
 
 #so for the veg survey, this is the percent cover, taken at a 1 square meter resolution
@@ -47,7 +44,7 @@ veg_survey_NEON$genus <-  gsub("([A-Za-z]+).*","\\1",veg_survey_NEON$scientificN
 table(full_veg_data$genus)
 
 
-
+plot(x=full_veg_data$decimalLongitude,y=full_veg_data$decimalLatitude)
 just_mertensia <- full_veg_data[full_veg_data$genus=="Mertensia",]
 
 year_plot_mertensia <- just_mertensia[with(just_mertensia,order(year,plotID)),]
@@ -76,8 +73,16 @@ just_mertensia <- ten_and_1_m_veg[ten_and_1_m_veg$genus=="Mertensia",]
 
 year_plot_mertensia <- just_mertensia[with(just_mertensia,order(year,plotID)),]
 
+#this should give us all the unique combinations of latlong, plot, subplot, and enddate that are present in the data. I
+#think. Really hoping this isn't just a roundabout way to expand grid...
+
 frame <- unique(ten_and_1_m_veg[,c("decimalLatitude","decimalLongitude","plotID","subplotID","endDate")])
 frame$PA <- 0
+
+#I made this little exists variable to make sure we hadn't generated any combinations of latlong, plot, subplot, and date
+#that didn't actually exist in the data. From what i can tell, they're all there. You can check it again in the loop below
+#just adding a little conditional to see if the current row combination exists in the ten_and_1_m_veg data, rather
+#than using the just_current for genus specific presence/absence.
 frame$exists <- 0
 
 genera <- unique(ten_and_1_m_veg$genus)
@@ -91,7 +96,7 @@ for(genus in genera){
   temp <- frame
   for(row in 1:ros){
     matches <-  which(just_current$plotID==temp[row,]$plotID&just_current$subplotID==temp[row,]$subplotID&
-                        just_current$endDate==temp[row,]$endDate&just_current$genus==genus)
+                        just_current$endDate==temp[row,]$endDate)
     
     num <- length(matches)
     if(num!=0){
@@ -103,16 +108,74 @@ for(genus in genera){
 
 just_mertensia_PA <- genus_PA_list[["Mertensia"]]
 
-just_mertensia_PA$year <- gsub("([0-9]{4})-.*","\\1",just_mertensia_PA$endDate)
+neon_prairie_fire <- genus_PA_list[["Castilleja"]]
 
+neon_fir <- genus_PA_list[["Abies"]]
+just_mertensia_PA$year <- gsub("([0-9]{4})-.*","\\1",just_mertensia_PA$endDate)
+neon_prairie_fire$year <- gsub("([0-9]{4})-.*","\\1",neon_prairie_fire$endDate)
+neon_fir$year <-  gsub("([0-9]{4})-.*","\\1",neon_fir$endDate)
+neon_fir$month_year <- gsub("([0-9]{4}-[0-9]{2}).*","\\1",neon_fir$endDate)
+
+
+spatial_just_mertensia <- SpatialPointsDataFrame(just_mertensia_PA[,c(2:1)],just_mertensia_PA)
+
+
+  
+r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+crs(spatial_just_mertensia) <- r
+
+
+
+plot(spatial_just_mertensia[spatial_just_mertensia$PA==1,], pch=16, col="blue")
+points(spatial_just_mertensia[spatial_just_mertensia$PA==0,], pch=16, col="yellow")
+
+mert_gg <- ggplot(just_mertensia_PA)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
+                                                    color=PA))+
+  facet_wrap(~year)
+
+mert_gg
+
+
+fire_gg<- ggplot(neon_prairie_fire)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
+                                                    color=PA))+
+  facet_wrap(~year)
+
+fire_gg
+
+
+fir_gg <- ggplot(neon_fir)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
+                                                   color=PA))+
+  facet_wrap(~month_year)
+
+fir_gg
+
+
+spatial_prairie_fire <- SpatialPointsDataFrame(neon_prairie_fire[,2:1],neon_prairie_fire)
+
+
+crs(total_can)
+r2 <- "+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+crs(spatial_prairie_fire) <- r
+
+transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(total_can))
+
+plot(x=spatial_prairie_fire$decimalLongitude,y=spatial_prairie_fire$decimalLatitude)
+
+neon_prairie_fire$canopy_moisture <- extract(total_can, spatial_prairie_fire[,2:1])
+
+plot(total_can)
+plot(x=transformed_prairie_fire$decimalLongitude,y=transformed_prairie_fire$decimalLatitude)
 
 mean(just_mertensia_PA$PA)
+
+mean(neon_prairie_fire$PA)
 
 which(just_mertensia_PA$PA==1)
 
 library(rstanarm)
 
-year_plot_stan <- stan_glmer(PA ~ 1 + as.numeric(year) + (1|plotID) +(plotID|subplotID),data=just_mertensia_PA, family=binomial)
+year_plot_stan <- stan_glmer(PA ~ 1 + as.numeric(year) + (1|plotID),data=neon_prairie_fire, family=binomial)
 
 
 print(summary(year_plot_stan)[,c("mean","sd","n_eff","Rhat")],digits=3)
@@ -149,44 +212,88 @@ r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
 crs(spat_neon_veg) <- r
 
-first_dat <- read.csv("NEON.D13.NIWO.DP1.00006.001.2020-02.expanded.20200304T221208Z/NEON.D13.NIWO.DP1.00006.001.900.000.030.PRIPRE_30min.2020-02.expanded.20200304T221208Z.csv")
-names(first_dat)
-nrow(first_dat)
 
-sensor_positions <- read.csv("NEON.D13.NIWO.DP1.00006.001.2020-02.expanded.20200304T221208Z/NEON.D13.NIWO.DP1.00006.001.sensor_positions.20200304T221208Z.csv")
-names(sensor_positions)
-head(sensor_positions)
+#flights for canopy moisture were in September 2017, August 2018, August 2019
 
+setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2017_NEON_canopy-water-content---mosaic/MSI/")
 
-sensor_positions_2 <- read.csv("NEON.D13.NIWO.DP1.00006.001.2020-01.expanded.20200209T005903Z/NEON.D13.NIWO.DP1.00006.001.sensor_positions.20200209T005903Z.csv")
-head(sensor_positions_2)
+seventeen_files <- list.files()
 
+seventeen_raster_list <- lapply(seventeen_files, raster)
 
+seventeen_raster_list$fun <- mean
+seventeen_raster_list$na.rm <- TRUE
 
-aspect_33 <- raster("../NEON_slope-and-aspect---lidar/only_diane/NEON_D13_NIWO_DP3_449000_4433000_aspect.tif")
-plot(aspect_33)
+full_MSI_raster_17 <- do.call(mosaic,seventeen_raster_list)
+plot(full_MSI_raster_17)
 
-aspect_34 <- raster("../NEON_slope-and-aspect---lidar/only_diane/NEON_D13_NIWO_DP3_449000_4434000_aspect.tif")
+seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
+points(x=seven_prairie_fires$decimalLongitude, y=seven_prairie_fires$decimalLatitude, col=seven_prairie_fires$PA)
+MSI_2017 <- data.frame(extract(full_MSI_raster_17, seven_prairie_fires))
+names(MSI_2017) <- "MSI"
+MSI_2017$year <- 2017
+MSI_2017[,c("Easting","Northing")] <- c(seven_prairie_fires$decimalLongitude, seven_prairie_fires$decimalLatitude)
+MSI_2017$PA <- seven_prairie_fires$PA
 
-plot(aspect_34)
+msi_17_model <- glm(PA~MSI, data=MSI_2017, family=binomial)
+summary(msi_17_model)
 
-total_aspect <- merge(aspect_33,aspect_34)
-
-plot(total_aspect)
-
-slope_33 <- raster("../NEON_slope-and-aspect---lidar/only_diane/NEON_D13_NIWO_DP3_449000_4433000_slope.tif")
-slope_34 <- raster("../NEON_slope-and-aspect---lidar/only_diane/NEON_D13_NIWO_DP3_449000_4434000_slope.tif")
-total_slope <- merge(slope_33,slope_34)
-plot(total_slope)
+setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2018_NEON_canopy-water-content---mosaic/MSI/")
 
 
 
-canopy_moist_33 <- raster("../NEON_canopy-water-content---mosaic/just_diane/NEON_D13_NIWO_DP3_449000_4433000_WaterIndices/NEON_D13_NIWO_DP3_449000_4433000_MSI.tif")
-canopy_moist_34 <- raster("../NEON_canopy-water-content---mosaic/just_diane/NEON_D13_NIWO_DP3_449000_4434000_WaterIndices/NEON_D13_NIWO_DP3_449000_4434000_MSI.tif")
-canopy_moist_45 <- raster("../NEON_canopy-water-content---mosaic/just_diane/NEON_D13_NIWO_DP3_450000_4433000_WaterIndices/NEON_D13_NIWO_DP3_450000_4433000_MSI.tif")
-total_can <- merge(canopy_moist_33,canopy_moist_34, canopy_moist_45)
+eighteen_files <- list.files()
 
-plot(total_can)
+eighteen_raster_list <- lapply(eighteen_files, raster)
+
+eighteen_raster_list$fun <- mean
+eighteen_raster_list$na.rm <- TRUE
+
+full_MSI_raster_18 <- do.call(mosaic,eighteen_raster_list)
+plot(full_MSI_raster_18)
+eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
+points(x=eight_prairie_fires$decimalLongitude, y=eight_prairie_fires$decimalLatitude, col=eight_prairie_fires$PA)
+MSI_2018 <- data.frame(extract(full_MSI_raster_18, eight_prairie_fires))
+names(MSI_2018) <- "MSI"
+MSI_2018$year <- 2018
+MSI_2018[,c("Easting","Northing")] <- c(eight_prairie_fires$decimalLongitude, eight_prairie_fires$decimalLatitude)
+MSI_2018$PA <- eight_prairie_fires$PA
+
+pch_lookup <- c("0"=21, "1"=22)
+points(x=jitter(MSI_2018$Easting,factor=500),y=jitter(MSI_2018$Northing, factor=5), bg=MSI_2018$MSI*10, pch=pch_lookup[as.character(MSI_2018$PA)])
+
+msi_18_model <- glm(PA~MSI, data=MSI_2018, family=binomial)
+summary(msi_18_model)
+
+setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2019_NEON_canopy-water-content---mosaic/MSI/")
+
+nineteen_files <- list.files()
+
+nineteen_raster_list <- lapply(nineteen_files, raster)
+
+nineteen_raster_list$fun <- mean
+nineteen_raster_list$na.rm <- TRUE
+
+full_MSI_raster_19 <- do.call(mosaic,nineteen_raster_list )
+plot(full_MSI_raster_19)
+
+nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
+points(x=nine_prairie_fires$decimalLongitude, y=nine_prairie_fires$decimalLatitude, col=nine_prairie_fires$PA)
+
+MSI_2019 <- data.frame(extract(full_MSI_raster_19, nine_prairie_fires))
+names(MSI_2019) <- "MSI"
+MSI_2019$year <- 2019
+MSI_2019[,c("Easting","Northing")] <- c(nine_prairie_fires$decimalLongitude, nine_prairie_fires$decimalLatitude)
+MSI_2019$PA <- nine_prairie_fires$PA
+points(x=MSI_2019$Easting,y=MSI_2019$Northing, col=MSI_2019$PA, cex=MSI_2019$MSI)
+
+
+msi_19_model <- glm(PA~MSI, data=MSI_2019, family=binomial)
+summary(msi_19_model)
+#this seems to be our actual moisture values...or something like it? I dunno. Rasters are 
+#weird. Anyways.
+total_can@data@values
+
 crop_canopy_MSI <- crop(total_can, extent(diane_reproject)+20)
 plot(crop_canopy_MSI)
 plot(diane_reproject,add=T)
@@ -217,6 +324,8 @@ just_geodude <- neon_veg_repro[neon_veg_repro$genus=="Geum",]
 
 names(neon_veg_repro)
 
+plot(y=neon_veg_repro$decimalLatitude,x=neon_veg_repro$decimalLongitude)
+
 #okay so twelve plots total with 6 subplots in each - except for plot 18 which has 5.
 
 #subplots are incorrectly labeled at the highest level, but the second two numbers are correct.
@@ -232,4 +341,13 @@ table(neon_veg_repro$genus)
 crp_slope <- crop(total_slope,extent(diane_reproject)+20)
 plot(crp_slope)
 plot(diane_reproject, add=T)
+
+
+
+xs <- seq(449000,453000,by=1000)
+ys <- seq(4431000,4434000,by=1000)
+xy <- expand.grid(xs,ys)
+write.csv(xy,"en.combos.txt", row.names = F, col.names = F)
+
+
 
