@@ -5,94 +5,129 @@ library(raster)
 library(dplyr)
 library(ggplot2)
 library(rstanarm)
+library(rstan)
 #I've plotted a lot of these using Diane Ebert May's data, but keep in mind
 #there is no temporal overlap between when the majority of this sensor/Lidar data
 #was collected and when Ebert May's sampling took place. Last Ebert May survey was
 #in 2011 and i think the earliest NEON data I've seen was with like 2013 or something.
 
-setwd("../NEON.Data/NEON_precipitation/")
+#this should be the working directory for the project itself, but had a lot of dumb problems with that not working, so here
+#is the basic one.
+setwd("/Users/aaronwestmoreland/Desktop/Project/Niwot_SDM/Niwot_SDMs")
+###### Read in Abio Rasters #####
 
+
+setwd("./NEON.Data/Moisture.Indices/")
+index.files <- list.files()
+
+for(file in index.files){
+  name <- gsub("[0-9]{4}.([A-Z]{3,4}).tif","\\1",file)
+  year <- gsub("([0-9]{4}).[A-Z]{3,4}.tif","\\1",file)
+  full_name <- paste(name,year,sep = ".")
+
+  assign(paste(full_name),raster(file))
+}
+
+plot(MDI.2017)
+
+
+setwd("../Aspect/")
+aspect <- raster("Aspect.tif")
+setwd("../Slope/")
+slope <- raster("Slope.tif")
+
+##### read in NEON veg surveys ####
 
 
 #so for the veg survey, this is the percent cover, taken at a 1 square meter resolution
 #for 8 subplots in each plot. The relationship between the numbers in plot v subplot
 #is a bit opaque to me, but im sure its sensible. Probably. Who knows.
-veg_survey_NEON <- read.csv("../NEON_presence-cover-plant/NEON.D13.NIWO.DP1.10058.001.2019-08.expanded.20200309T210318Z/NEON.D13.NIWO.DP1.10058.001.div_1m2Data.2019-08.basic.20200309T210318Z.csv")
 
 #ayyy got all that data in, took some doin but managed it. okay. now let's clean it a bit, first by splitting our dates,
 #then by pulling out just deschampsia.
-
-veg_files <- list.files(path = "../NEON_presence-cover-plant/10m.veg.PA/", pattern = "*.csv")
-veg_files <- paste0("../NEON_presence-cover-plant/10m.veg.PA/",veg_files)
-veg_data <- lapply(veg_files, read.csv)
-veg_data[[1]]
-
-
-full_veg_data <- rbind_list(veg_data)
-names(full_veg_data)
+setwd("./NEON.Data/")
+one_veg_files <- list.files(path = "./1m.veg.PA/", pattern = "*.csv")
+one_veg_files <- paste0("./1m.veg.PA/",one_veg_files)
+one_veg_data <- lapply(one_veg_files, read.csv)
+one_veg_data[[1]]
 
 
-full_veg_data$year <- gsub("([0-9]{4})-.*","\\1",full_veg_data$endDate)
-full_veg_data$month <- gsub(".*-([0-9]{2})-.*","\\1",full_veg_data$endDate)
+one_full_veg_data <- rbind_list(one_veg_data)
+rm(one_veg_data)
 
-full_veg_data$genus <-  gsub("([A-Za-z]+).*","\\1",full_veg_data$scientificName)
 
-veg_survey_NEON$year <- gsub("([0-9]{4})-.*","\\1",veg_survey_NEON$endDate)
-veg_survey_NEON$month <- gsub(".*-([0-9]{2})-.*","\\1",veg_survey_NEON$endDate)
 
-veg_survey_NEON$genus <-  gsub("([A-Za-z]+).*","\\1",veg_survey_NEON$scientificName)
-table(full_veg_data$genus)
+#this is actually 10 and 100 m data!! be aware of that. Data with just a single integer for the subplot is from the 100m2
+#survey. I'll talk with michael about how to handle that.
+ten_veg_files <- list.files(path = "./10m.veg.PA/", pattern = "*.csv")
+ten_veg_files <- paste0("./10m.veg.PA/",ten_veg_files)
+ten_veg_data <- lapply(ten_veg_files, read.csv)
+ten_veg_data[[1]]
+
+
+ten_full_veg_data <- rbind_list(ten_veg_data)
+rm(ten_veg_data)
+names(ten_full_veg_data)
+
+
+ten_full_veg_data$year <- gsub("([0-9]{4})-.*","\\1",ten_full_veg_data$endDate)
+ten_full_veg_data$month <- gsub(".*-([0-9]{2})-.*","\\1",ten_full_veg_data$endDate)
+
+ten_full_veg_data$genus <-  gsub("([A-Za-z]+).*","\\1",ten_full_veg_data$scientificName)
+
+one_full_veg_data$year <- gsub("([0-9]{4})-.*","\\1",one_full_veg_data$endDate)
+one_full_veg_data$month <- gsub(".*-([0-9]{2})-.*","\\1",one_full_veg_data$endDate)
+
+one_full_veg_data$genus <-  gsub("([A-Za-z]+).*","\\1",one_full_veg_data$scientificName)
+table(one_full_veg_data$genus)
 
 
 plot(x=full_veg_data$decimalLongitude,y=full_veg_data$decimalLatitude)
-just_mertensia <- full_veg_data[full_veg_data$genus=="Mertensia",]
-
-year_plot_mertensia <- just_mertensia[with(just_mertensia,order(year,plotID)),]
 
 
-names(veg_survey_NEON)
-names(full_veg_data)
-remove_names <- setdiff(names(veg_survey_NEON),
-        names(full_veg_data))
-full_veg_data <- full_veg_data%>%select(-"additionalSpecies")
 
-full_veg_data$scale <- "ten"
+names(one_full_veg_data)
+names(ten_full_veg_data)
+remove_names <- setdiff(names(one_full_veg_data),
+        names(ten_full_veg_data))
+setdiff(names(ten_full_veg_data), names(one_full_veg_data))
+ten_full_veg_data <- ten_full_veg_data%>%select(-"additionalSpecies")
+
+ten_full_veg_data$scale <- "ten"
 
 
-no_cover_1m2 <- veg_survey_NEON%>%select(-one_of(remove_names))
+no_cover_1m2 <- one_full_veg_data%>%select(-one_of(remove_names))
 no_cover_1m2$scale <- "one"
-setdiff(names(full_veg_data),
+setdiff(names(ten_full_veg_data),
         names(no_cover_1m2))
 
 length(names(no_cover_1m2))
-length(names(full_veg_data))
-ten_and_1_m_veg <- rbind(full_veg_data,no_cover_1m2)
+length(names(ten_full_veg_data))
+ten_one_100_veg_survey<- rbind(ten_full_veg_data,no_cover_1m2)
 
 
-just_mertensia <- ten_and_1_m_veg[ten_and_1_m_veg$genus=="Mertensia",]
 
-year_plot_mertensia <- just_mertensia[with(just_mertensia,order(year,plotID)),]
 
 #this should give us all the unique combinations of latlong, plot, subplot, and enddate that are present in the data. I
 #think. Really hoping this isn't just a roundabout way to expand grid...
 
-frame <- unique(ten_and_1_m_veg[,c("decimalLatitude","decimalLongitude","plotID","subplotID","endDate")])
+frame <- unique(ten_one_100_veg_survey[,c("decimalLatitude","decimalLongitude","plotID","subplotID","endDate")])
 frame$PA <- 0
 
 #I made this little exists variable to make sure we hadn't generated any combinations of latlong, plot, subplot, and date
 #that didn't actually exist in the data. From what i can tell, they're all there. You can check it again in the loop below
-#just adding a little conditional to see if the current row combination exists in the ten_and_1_m_veg data, rather
+#just adding a little conditional to see if the current row combination exists in the ten_one_100_veg_survey data, rather
 #than using the just_current for genus specific presence/absence.
 frame$exists <- 0
 
-genera <- unique(ten_and_1_m_veg$genus)
+genera <- unique(ten_one_100_veg_survey$genus)
 
 ros <- nrow(frame)
 
 genus_PA_list <- list()
 
 for(genus in genera){
-  just_current <- ten_and_1_m_veg[ten_and_1_m_veg$genus==genus,]
+  just_current <- ten_one_100_veg_survey[ten_one_100_veg_survey$genus==genus,]
   temp <- frame
   for(row in 1:ros){
     matches <-  which(just_current$plotID==temp[row,]$plotID&just_current$subplotID==temp[row,]$subplotID&
@@ -106,35 +141,16 @@ for(genus in genera){
   genus_PA_list[[paste(genus)]] <- temp
 }
 
-just_mertensia_PA <- genus_PA_list[["Mertensia"]]
 
 neon_prairie_fire <- genus_PA_list[["Castilleja"]]
 
-neon_fir <- genus_PA_list[["Abies"]]
-just_mertensia_PA$year <- gsub("([0-9]{4})-.*","\\1",just_mertensia_PA$endDate)
+
 neon_prairie_fire$year <- gsub("([0-9]{4})-.*","\\1",neon_prairie_fire$endDate)
-neon_fir$year <-  gsub("([0-9]{4})-.*","\\1",neon_fir$endDate)
-neon_fir$month_year <- gsub("([0-9]{4}-[0-9]{2}).*","\\1",neon_fir$endDate)
-
-
-spatial_just_mertensia <- SpatialPointsDataFrame(just_mertensia_PA[,c(2:1)],just_mertensia_PA)
-
-
-  
-r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-
-crs(spatial_just_mertensia) <- r
 
 
 
-plot(spatial_just_mertensia[spatial_just_mertensia$PA==1,], pch=16, col="blue")
-points(spatial_just_mertensia[spatial_just_mertensia$PA==0,], pch=16, col="yellow")
 
-mert_gg <- ggplot(just_mertensia_PA)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
-                                                    color=PA))+
-  facet_wrap(~year)
 
-mert_gg
 
 
 fire_gg<- ggplot(neon_prairie_fire)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
@@ -144,34 +160,110 @@ fire_gg<- ggplot(neon_prairie_fire)+geom_point(aes(x=decimalLongitude,y=decimalL
 fire_gg
 
 
-fir_gg <- ggplot(neon_fir)+geom_point(aes(x=decimalLongitude,y=decimalLatitude,
-                                                   color=PA))+
-  facet_wrap(~month_year)
 
-fir_gg
+
+
+neon_prairie_fire$top_sub <- gsub("([0-9]{2}).[0-9].[0-9]{1,2}","\\1",neon_prairie_fire$subplotID)
+neon_prairie_fire$mid_sub <- gsub("[0-9]{2}.([0-9]).[0-9]{1,2}","\\1",neon_prairie_fire$subplotID)
+
 
 
 spatial_prairie_fire <- SpatialPointsDataFrame(neon_prairie_fire[,2:1],neon_prairie_fire)
+r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-
-crs(total_can)
-r2 <- "+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
 crs(spatial_prairie_fire) <- r
 
-transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(total_can))
+transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(full_MSI_raster_17))
+ros2 <- nrow(transformed_prairie_fire)
 
-plot(x=spatial_prairie_fire$decimalLongitude,y=spatial_prairie_fire$decimalLatitude)
 
-neon_prairie_fire$canopy_moisture <- extract(total_can, spatial_prairie_fire[,2:1])
+for(j in 1:ros2){
+  if(transformed_prairie_fire$top_sub[j]==31){
+    
+    if(transformed_prairie_fire$mid_sub[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-5
+       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-5
+    }else if(transformed_prairie_fire$mid_sub[j]==1){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
+    }else if (transformed_prairie_fire$mid_sub[j]==2){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude
+    }else if (transformed_prairie_fire$mid_sub[j]==3){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
+     }else if(transformed_prairie_fire$mid_sub[j]==4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }
+  }else if (transformed_prairie_fire$top_sub[j]==32){
+    if(transformed_prairie_fire$mid_sub[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-5
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+5
+    }else if(transformed_prairie_fire$mid_sub[j]==1){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if (transformed_prairie_fire$mid_sub[j]==2){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
+    }else if (transformed_prairie_fire$mid_sub[j]==3){
+       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if(transformed_prairie_fire$mid_sub[j]==4){
+      transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
+    }
+  }else if(transformed_prairie_fire$top_sub[j]==40){
+    if(transformed_prairie_fire$mid_sub[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+5
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-5
+    }else if(transformed_prairie_fire$mid_sub[j]==1){
+     transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
+    }else if (transformed_prairie_fire$mid_sub[j]==2){
+     transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+     transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if (transformed_prairie_fire$mid_sub[j]==3){
+      transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]+10
+      transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]-10
+    }else if(transformed_prairie_fire$mid_sub[j]==4){
+      transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]+10
+      transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]
+    }
+  }else if (transformed_prairie_fire$top_sub[j]==42){
+    if(transformed_prairie_fire$mid_sub[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+5
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+5
+    }else if(transformed_prairie_fire$mid_sub[j]==1){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if (transformed_prairie_fire$mid_sub[j]==2){
+      transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]+10
+    }else if (transformed_prairie_fire$mid_sub[j]==3){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+10
+      transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]
+    }else if(transformed_prairie_fire$mid_sub[j]==4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+10
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
+    }
+  }
+  
+}
 
-plot(total_can)
-plot(x=transformed_prairie_fire$decimalLongitude,y=transformed_prairie_fire$decimalLatitude)
 
-mean(just_mertensia_PA$PA)
+
+plot(x=transformed_prairie_fire$Easting,y=transformed_prairie_fire$Northing)
+
+
+plot(x=neon_prairie_fire$decimalLongitude,y=spatial_prairie_fire$decimalLatitude)
+
+
+
 
 mean(neon_prairie_fire$PA)
 
-which(just_mertensia_PA$PA==1)
+
 
 library(rstanarm)
 
@@ -215,31 +307,23 @@ crs(spat_neon_veg) <- r
 
 #flights for canopy moisture were in September 2017, August 2018, August 2019
 
-setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2017_NEON_canopy-water-content---mosaic/MSI/")
 
-seventeen_files <- list.files()
-
-seventeen_raster_list <- lapply(seventeen_files, raster)
-
-seventeen_raster_list$fun <- mean
-seventeen_raster_list$na.rm <- TRUE
-
-full_MSI_raster_17 <- do.call(mosaic,seventeen_raster_list)
 plot(full_MSI_raster_17)
 
 seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
-points(x=seven_prairie_fires$decimalLongitude, y=seven_prairie_fires$decimalLatitude, col=seven_prairie_fires$PA)
-MSI_2017 <- data.frame(extract(full_MSI_raster_17, seven_prairie_fires))
+points(x=seven_prairie_fires$Easting, y=seven_prairie_fires$Northing, col=seven_prairie_fires$PA)
+
+MSI_2017 <- data.frame(extract(full_MSI_raster_17, c(seven_prairie_fires$Northing, seven_prairie_fires$Easting)))
 names(MSI_2017) <- "MSI"
 MSI_2017$year <- 2017
-MSI_2017[,c("Easting","Northing")] <- c(seven_prairie_fires$decimalLongitude, seven_prairie_fires$decimalLatitude)
+MSI_2017$Easting <- seven_prairie_fires$Easting
+MSI_2017$Northing <- seven_prairie_fires$Northing
 MSI_2017$PA <- seven_prairie_fires$PA
+MSI_2017$Plot <- as.factor(seven_prairie_fires$plotID)
 
-msi_17_model <- glm(PA~MSI, data=MSI_2017, family=binomial)
-summary(msi_17_model)
+
 
 setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2018_NEON_canopy-water-content---mosaic/MSI/")
-
 
 
 eighteen_files <- list.files()
@@ -253,17 +337,15 @@ full_MSI_raster_18 <- do.call(mosaic,eighteen_raster_list)
 plot(full_MSI_raster_18)
 eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
 points(x=eight_prairie_fires$decimalLongitude, y=eight_prairie_fires$decimalLatitude, col=eight_prairie_fires$PA)
-MSI_2018 <- data.frame(extract(full_MSI_raster_18, eight_prairie_fires))
+MSI_2018 <- data.frame(extract(full_MSI_raster_18, c(eight_prairie_fires$Northing, eight_prairie_fires$Easting)))
 names(MSI_2018) <- "MSI"
 MSI_2018$year <- 2018
-MSI_2018[,c("Easting","Northing")] <- c(eight_prairie_fires$decimalLongitude, eight_prairie_fires$decimalLatitude)
+MSI_2018$Easting <- eight_prairie_fires$Easting
+MSI_2018$Northing <- eight_prairie_fires$Northing
 MSI_2018$PA <- eight_prairie_fires$PA
+MSI_2018$Plot <- eight_prairie_fires$plotID
 
-pch_lookup <- c("0"=21, "1"=22)
-points(x=jitter(MSI_2018$Easting,factor=500),y=jitter(MSI_2018$Northing, factor=5), bg=MSI_2018$MSI*10, pch=pch_lookup[as.character(MSI_2018$PA)])
 
-msi_18_model <- glm(PA~MSI, data=MSI_2018, family=binomial)
-summary(msi_18_model)
 
 setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2019_NEON_canopy-water-content---mosaic/MSI/")
 
@@ -280,31 +362,82 @@ plot(full_MSI_raster_19)
 nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
 points(x=nine_prairie_fires$decimalLongitude, y=nine_prairie_fires$decimalLatitude, col=nine_prairie_fires$PA)
 
-MSI_2019 <- data.frame(extract(full_MSI_raster_19, nine_prairie_fires))
+MSI_2019 <- data.frame(extract(full_MSI_raster_19, c(nine_prairie_fires$Northing,nine_prairie_fires$Easting)))
 names(MSI_2019) <- "MSI"
 MSI_2019$year <- 2019
-MSI_2019[,c("Easting","Northing")] <- c(nine_prairie_fires$decimalLongitude, nine_prairie_fires$decimalLatitude)
+MSI_2018$Easting <- eight_prairie_fires$Easting
+MSI_2018$Northing <- eight_prairie_fires$Northing
 MSI_2019$PA <- nine_prairie_fires$PA
+MSI_2019$Plot <- nine_prairie_fires$plotID
 points(x=MSI_2019$Easting,y=MSI_2019$Northing, col=MSI_2019$PA, cex=MSI_2019$MSI)
+
+
+
+?#talked a bit about the plot/subplot up above, but i'll mention here too. Seems like
+#for the percent cover data which is what we have here, the sampling took place in
+#8 1 square meter subplots for each plot. There are only 6 levels to subplotID tho
+#so honestly who knows what the structure of this really is??
+  
+  
+
+
+
+plot(full_slope_raster)
+plot(full_aspect_raster)
+
+
+all_years <- rbind(seven_prairie_fires,eight_prairie_fires,nine_prairie_fires)
+
+all_years$slope <- extract()
+
+
+raster::extract(full_MSI_raster_19, c(nine_prairie_fires$Northing,nine_prairie_fires$Easting))
+
+
+
+
+
+
+
+plot(x=MSI_2017$Easting, y=MSI_2017$Northing)
+
+nrow(MSI_2017)
+
+
+msi_17_model <- glm(PA~MSI, data=MSI_2017, family=binomial)
+summary(msi_17_model)
+
+stan_17_msi <- stan_glmer(PA~1+MSI+(1|Plot), data=MSI_2017,family="binomial")
+launch_shinystan(stan_17_msi)
+
+
+
+
 
 
 msi_19_model <- glm(PA~MSI, data=MSI_2019, family=binomial)
 summary(msi_19_model)
-#this seems to be our actual moisture values...or something like it? I dunno. Rasters are 
-#weird. Anyways.
-total_can@data@values
-
-crop_canopy_MSI <- crop(total_can, extent(diane_reproject)+20)
-plot(crop_canopy_MSI)
-plot(diane_reproject,add=T)
-
-diane_reproject <- spTransform(oh_diane, crs(slope_33))
 
 
-#talked a bit about the plot/subplot up above, but i'll mention here too. Seems like
-#for the percent cover data which is what we have here, the sampling took place in
-#8 1 square meter subplots for each plot. There are only 6 levels to subplotID tho
-#so honestly who knows what the structure of this really is??
+stan_19_msi <- stan_glmer(PA~1+MSI+(1|Plot), data=MSI_2019, family="binomial")
+
+
+launch_shinystan(stan_19_msi)
+
+
+pch_lookup <- c("0"=21, "1"=22)
+points(x=jitter(MSI_2018$Easting,factor=500),y=jitter(MSI_2018$Northing, factor=5), bg=MSI_2018$MSI*10, pch=pch_lookup[as.character(MSI_2018$PA)])
+
+msi_18_model <- glm(PA~MSI, data=MSI_2018, family=binomial)
+summary(msi_18_model)
+
+stan_msi_18 <- stan_glmer(PA~1+MSI+(1|Plot), data=MSI_2018,family="binomial")
+launch_shinystan(stan_msi_18)
+summary(stan_msi_18)
+
+
+
+
 neon_veg_repro <- spTransform(spat_neon_veg, crs(total_can))
 plot(total_can)
 plot(just_geodude,add=T, pch=1)
