@@ -20,13 +20,18 @@ setwd("/Users/aaronwestmoreland/Desktop/Project/Niwot_SDM/Niwot_SDMs")
 setwd("./NEON.Data/Moisture.Indices/")
 index.files <- list.files()
 
+moisture_list <- list()
+
 for(file in index.files){
   name <- gsub("[0-9]{4}.([A-Z]{3,4}).tif","\\1",file)
   year <- gsub("([0-9]{4}).[A-Z]{3,4}.tif","\\1",file)
   full_name <- paste(name,year,sep = ".")
 
-  assign(paste(full_name),raster(file))
+  
+  moisture_list[[paste(full_name)]] <- raster(file)
+  #assign(paste(full_name),raster(file))
 }
+
 
 plot(MDI.2017)
 
@@ -35,6 +40,26 @@ setwd("../Aspect/")
 aspect <- raster("Aspect.tif")
 setwd("../Slope/")
 slope <- raster("Slope.tif")
+
+setwd("../Nitrogen_Indices/")
+
+nit.files <-  list.files()
+
+
+# bad_files <- grep("[A-Z]{3,4}.[0-9]{4}.tif.[A-Z]{3,4}.[0-9]{4}.tif", names(.GlobalEnv),value=T)
+# rm(list=bad_files)
+nitro_list <- list()
+for(file in nit.files){
+  name <- gsub("([A-Z]{3,4}).[0-9]{4}.tif","\\1",file)
+  year <- gsub("[A-Z]{3,4}.([0-9]{4}).tif","\\1",file)
+  full_name <- paste(name,year,sep = ".")
+  
+  nitro_list[[paste(full_name)]] <- raster(file)
+  
+}
+
+
+
 
 ##### read in NEON veg surveys ####
 
@@ -45,7 +70,7 @@ slope <- raster("Slope.tif")
 
 #ayyy got all that data in, took some doin but managed it. okay. now let's clean it a bit, first by splitting our dates,
 #then by pulling out just deschampsia.
-setwd("./NEON.Data/")
+setwd("../")
 one_veg_files <- list.files(path = "./1m.veg.PA/", pattern = "*.csv")
 one_veg_files <- paste0("./1m.veg.PA/",one_veg_files)
 one_veg_data <- lapply(one_veg_files, read.csv)
@@ -54,8 +79,6 @@ one_veg_data[[1]]
 
 one_full_veg_data <- rbind_list(one_veg_data)
 rm(one_veg_data)
-
-
 
 #this is actually 10 and 100 m data!! be aware of that. Data with just a single integer for the subplot is from the 100m2
 #survey. I'll talk with michael about how to handle that.
@@ -173,7 +196,7 @@ r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
 crs(spatial_prairie_fire) <- r
 
-transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(full_MSI_raster_17))
+transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(nitro_list[[1]]))
 ros2 <- nrow(transformed_prairie_fire)
 
 
@@ -256,15 +279,65 @@ for(j in 1:ros2){
 plot(x=transformed_prairie_fire$Easting,y=transformed_prairie_fire$Northing)
 
 
-plot(x=neon_prairie_fire$decimalLongitude,y=spatial_prairie_fire$decimalLatitude)
+t <- 1:12
+
+t.m <- t%%2
 
 
 
+nit_17 <- nitro_list[grep("2017", names(nitro_list))]
+nit_18 <- nitro_list[grep("2018", names(nitro_list))]
+nit_19 <- nitro_list[grep("2019", names(nitro_list))]
 
-mean(neon_prairie_fire$PA)
+mo_17 <- moisture_list[grep("2017",names(moisture_list))]
+mo_18 <- moisture_list[grep("2018",names(moisture_list))]
+mo_19 <- moisture_list[grep("2019",names(moisture_list))]
 
 
+seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
+eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
+nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
 
+
+df_all_17 <- data.frame(Easting=seven_prairie_fires$Easting, Northing=seven_prairie_fires$Northing,
+                        PA=seven_prairie_fires$PA, plot=seven_prairie_fires$PA,
+                        subplot=seven_prairie_fires$subplotID,
+                        year=2017)
+df_all_18 <- data.frame(Easting=eight_prairie_fires$Easting, Northing=eight_prairie_fires$Northing,
+                        PA=eight_prairie_fires$PA, plot=eight_prairie_fires$PA,
+                        subplot=eight_prairie_fires$subplotID,
+                        year=2018)
+df_all_19 <- data.frame(Easting=nine_prairie_fires$Easting, Northing=nine_prairie_fires$Northing,
+                        PA=nine_prairie_fires$PA, plot=nine_prairie_fires$PA,
+                        subplot=nine_prairie_fires$subplotID,
+                        year=2019)
+
+
+rextract17 <- function(rast){
+  thing <- raster::extract(rast, c(seven_prairie_fires$Easting,seven_prairie_fires$Northing))
+  return(thing)
+}
+rextract18 <- function(rast){
+  thing <- raster::extract(rast, c(eight_prairie_fires$Easting,eight_prairie_fires$Northing))
+  return(thing)
+}
+rextract19 <- function(rast){
+  thing <- raster::extract(rast, c(nine_prairie_fires$Easting,nine_prairie_fires$Northing))
+  return(thing)
+}
+
+indices_17 <- data.frame(lapply(nit_17, rextract17))
+indices_18 <-  data.frame(lapply(nit_18, rextract18))
+indices_19 <-  data.frame(lapply(nit_19, rextract19))
+mindices_17 <- data.frame(lapply(mo_17, rextract17))
+mindices_18 <-  data.frame(lapply(mo_18, rextract18))
+mindices_19 <-  data.frame(lapply(mo_19, rextract19))
+
+
+df_all_17 <- cbind(df_all_17,indices_17,mindices_17)
+df_all_18 <- cbind(df_all_18,indices_18, mindices_18)
+df_all_19 <- cbind(df_all_19,indices_19, mindices_19)
+names(df_all_17)
 library(rstanarm)
 
 year_plot_stan <- stan_glmer(PA ~ 1 + as.numeric(year) + (1|plotID),data=neon_prairie_fire, family=binomial)
@@ -297,83 +370,124 @@ plot(full_veg_data$decimalLatitude~full_veg_data$decimalLongitude)
 
 #gonna try and convert our vegetation survey to a spatial df
 
-spat_neon_veg <- SpatialPointsDataFrame(veg_survey_NEON[,6:5],
-                                        veg_survey_NEON)
-
-r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-
-crs(spat_neon_veg) <- r
 
 
 #flights for canopy moisture were in September 2017, August 2018, August 2019
 
 
-plot(full_MSI_raster_17)
+pull_rast <- function(list,data, year){
+  year_rast <- 
+  year_dat <- data[data$year==year,]
+  print(year_dat)
+}
+
+pull_rast(transformed_prairie_fire,2017)
 
 seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
-points(x=seven_prairie_fires$Easting, y=seven_prairie_fires$Northing, col=seven_prairie_fires$PA)
 
-MSI_2017 <- data.frame(extract(full_MSI_raster_17, c(seven_prairie_fires$Northing, seven_prairie_fires$Easting)))
+all_indices_frame_2017<- data.frame(Easting=seven_prairie_fires$Easting,
+                                    Northing= seven_prairie_fires$Northing,
+                                    PA=as.factor(seven_prairie_fires$PA),
+                                    Plot=as.factor(seven_prairie_fires$plotID))
+all_indices_frame_2017$Northing <- seven_prairie_fires$Northing
+all_indices_frame_2017$PA <- seven_prairie_fires$PA
+all_indices_frame_2017$Plot <- as.factor(seven_prairie_fires$plotID)
+#moisture stress index
+MSI_2017 <- data.frame(raster::extract(MSI.2017, c(seven_prairie_fires$Northing, seven_prairie_fires$Easting)))
 names(MSI_2017) <- "MSI"
 MSI_2017$year <- 2017
 MSI_2017$Easting <- seven_prairie_fires$Easting
 MSI_2017$Northing <- seven_prairie_fires$Northing
 MSI_2017$PA <- seven_prairie_fires$PA
 MSI_2017$Plot <- as.factor(seven_prairie_fires$plotID)
+#normalized multi-band drought index
+
+obs <- grep("[A-Z]{3,4}\\.2017", names(.GlobalEnv), value=T)
+ob_list <- do.call(list, mget(obs))
+
+
+for(object in ob_list){
+  
+  ind.year <- names(object)
+  just_ind <- gsub("([A-Z]{3,4}")
+  
+  assign(paste(just_ind), raster::extract())
+  
+  }
 
 
 
-setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2018_NEON_canopy-water-content---mosaic/MSI/")
+MSI_2017$NMDI <- raster::extract(MDI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+#normalized difference infrared index
+MSI_2017$NDII <- raster::extract(DII.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+#normalized difference water index
+MSI_2017$NDWI <- raster::extract(DWI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+#water band index
+MSI_2017$WBI <- raster::extract(WBI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+
+MSI_2017$ARVI <- raster::extract(ARVI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+
+MSI_2017$EVI <- raster::extract(EVI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+MSI_2017$WBI <- raster::extract(WBI.2017,c(seven_prairie_fires$Northing, seven_prairie_fires$Easting))
+
+# SAVI, PRI, NDVI, NDNI, NDLI, ARVI, EVI
 
 
-eighteen_files <- list.files()
+mod <- lm(MSI_2017$MSI~MSI_2017$PA)
+mod_nm <- lm(MSI_2017$NMDI~MSI_2017$PA)
+#NOPE for NMDI
+summary(mod_nm)
+summary(mod)
 
-eighteen_raster_list <- lapply(eighteen_files, raster)
+mod_ndii <- lm(MSI_2017$NDII~MSI_2017$PA)
+summary(mod_ndii)
 
-eighteen_raster_list$fun <- mean
-eighteen_raster_list$na.rm <- TRUE
+mod_asp <- lm(MSI_2017$aspect~-1+as.factor(MSI_2017$PA))
+summary(mod_asp)
 
-full_MSI_raster_18 <- do.call(mosaic,eighteen_raster_list)
-plot(full_MSI_raster_18)
+cor(MSI_2017[,c(1,5,7,8,9,10)])
+
+
+
 eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
-points(x=eight_prairie_fires$decimalLongitude, y=eight_prairie_fires$decimalLatitude, col=eight_prairie_fires$PA)
-MSI_2018 <- data.frame(extract(full_MSI_raster_18, c(eight_prairie_fires$Northing, eight_prairie_fires$Easting)))
+MSI_2018 <- data.frame(raster::extract(MSI.2018, c(eight_prairie_fires$Northing, eight_prairie_fires$Easting)))
 names(MSI_2018) <- "MSI"
 MSI_2018$year <- 2018
 MSI_2018$Easting <- eight_prairie_fires$Easting
 MSI_2018$Northing <- eight_prairie_fires$Northing
 MSI_2018$PA <- eight_prairie_fires$PA
 MSI_2018$Plot <- eight_prairie_fires$plotID
-
-
-
-setwd("~/Desktop/Project/Niwot_SDM/NEON.Data/2019_NEON_canopy-water-content---mosaic/MSI/")
-
-nineteen_files <- list.files()
-
-nineteen_raster_list <- lapply(nineteen_files, raster)
-
-nineteen_raster_list$fun <- mean
-nineteen_raster_list$na.rm <- TRUE
-
-full_MSI_raster_19 <- do.call(mosaic,nineteen_raster_list )
-plot(full_MSI_raster_19)
+MSI_2018$NMDI <- raster::extract(MDI.2018,c(eight_prairie_fires$Northing, eight_prairie_fires$Easting))
+#normalized difference infrared index
+MSI_2018$NDII <- raster::extract(DII.2018,c(eight_prairie_fires$Northing, eight_prairie_fires$Easting))
+#normalized difference water index
+MSI_2018$NDWI <- raster::extract(DWI.2018,c(eight_prairie_fires$Northing, eight_prairie_fires$Easting))
+#water band index
+MSI_2018$WBI <- raster::extract(WBI.2018,c(eight_prairie_fires$Northing, eight_prairie_fires$Easting))
+names(MSI_2018)
 
 nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
-points(x=nine_prairie_fires$decimalLongitude, y=nine_prairie_fires$decimalLatitude, col=nine_prairie_fires$PA)
 
-MSI_2019 <- data.frame(extract(full_MSI_raster_19, c(nine_prairie_fires$Northing,nine_prairie_fires$Easting)))
+MSI_2019 <- data.frame(raster::extract(MSI.2019, c(nine_prairie_fires$Northing,nine_prairie_fires$Easting)))
 names(MSI_2019) <- "MSI"
 MSI_2019$year <- 2019
 MSI_2018$Easting <- eight_prairie_fires$Easting
 MSI_2018$Northing <- eight_prairie_fires$Northing
 MSI_2019$PA <- nine_prairie_fires$PA
 MSI_2019$Plot <- nine_prairie_fires$plotID
-points(x=MSI_2019$Easting,y=MSI_2019$Northing, col=MSI_2019$PA, cex=MSI_2019$MSI)
+MSI_2019$NMDI <- raster::extract(MDI.2019,c(nine_prairie_fires$Northing, nine_prairie_fires$Easting))
+#normalized difference infrared index
+MSI_2019$NDII <- raster::extract(DII.2019,c(nine_prairie_fires$Northing, nine_prairie_fires$Easting))
+#normalized difference water index
+MSI_2019$NDWI <- raster::extract(DWI.2019,c(nine_prairie_fires$Northing, nine_prairie_fires$Easting))
+#water band index
+MSI_2019$WBI <- raster::extract(WBI.2019,c(nine_prairie_fires$Northing, nine_prairie_fires$Easting))
 
 
+ncol(MSI_2017)
+ncol(MSI_2018)
 
-?#talked a bit about the plot/subplot up above, but i'll mention here too. Seems like
+#talked a bit about the plot/subplot up above, but i'll mention here too. Seems like
 #for the percent cover data which is what we have here, the sampling took place in
 #8 1 square meter subplots for each plot. There are only 6 levels to subplotID tho
 #so honestly who knows what the structure of this really is??
@@ -386,12 +500,14 @@ plot(full_slope_raster)
 plot(full_aspect_raster)
 
 
-all_years <- rbind(seven_prairie_fires,eight_prairie_fires,nine_prairie_fires)
-
-all_years$slope <- extract()
+all_years <- rbind(MSI_2017,MSI_2018,MSI_2019)
 
 
-raster::extract(full_MSI_raster_19, c(nine_prairie_fires$Northing,nine_prairie_fires$Easting))
+
+names(all_years)
+
+
+
 
 
 
@@ -438,6 +554,15 @@ summary(stan_msi_18)
 
 
 
+
+
+spat_neon_veg <- SpatialPointsDataFrame(veg_survey_NEON[,6:5],
+                                        veg_survey_NEON)
+
+
+crs(spat_neon_veg) <- r
+
+
 neon_veg_repro <- spTransform(spat_neon_veg, crs(total_can))
 plot(total_can)
 plot(just_geodude,add=T, pch=1)
@@ -482,5 +607,9 @@ ys <- seq(4431000,4434000,by=1000)
 xy <- expand.grid(xs,ys)
 write.csv(xy,"en.combos.txt", row.names = F, col.names = F)
 
+
+if(length(grep("fuck","fuck"))>0){
+  print("yiss")
+}
 
 
