@@ -1,6 +1,6 @@
 
 #Gonna try and read in a lot of sensor data
-
+library(stringr)
 library(raster)
 library(dplyr)
 library(ggplot2)
@@ -82,6 +82,13 @@ rm(one_veg_data)
 
 #this is actually 10 and 100 m data!! be aware of that. Data with just a single integer for the subplot is from the 100m2
 #survey. I'll talk with michael about how to handle that.
+
+
+# PROBLEM HERE. MAKE SURE YOU FIX THAT WE CAN HAVE AN ABSENCE RECORDED AT 1 M, THEN A PRESENCE AT 10 M. WHEN WE AGGREGATE
+#THIS TO 10 M PLOTS, THAT LOOKS LIKE ONE ABIO VALUE HAVING BOTH AN ABSENCE AND A PRESENCE. PLUS THAT VALUE IS REPLICATED.
+#SO NEED TO RESTRUCTURE THE PA TABLE CONSTRUCTION TO JUST GIVE US PRESENCE/ABSENCE AT THE TEN METER SUBLOT. BASICALLY
+#IT SHOULD CHECK IF THE .1 PLOT SAW IT, THEN IF THE .10 PLOT SAW IT. IF ITS YES IN 1, DONT CHECK 10. IF ITS NO IN 1, CHECK
+#THEN THEN SAY YES OR NO DEPENDING. DON'T WORRY ABOUT 100 METER FOR NOW. 
 ten_veg_files <- list.files(path = "./10m.veg.PA/", pattern = "*.csv")
 ten_veg_files <- paste0("./10m.veg.PA/",ten_veg_files)
 ten_veg_data <- lapply(ten_veg_files, read.csv)
@@ -130,11 +137,12 @@ ten_one_100_veg_survey<- rbind(ten_full_veg_data,no_cover_1m2)
 
 
 
+ten_one_100_veg_survey$mid_sub<- gsub("([0-9]{2}.[0-9]).[0-9]{1,2}","\\1",ten_one_100_veg_survey$subplotID)
 
 #this should give us all the unique combinations of latlong, plot, subplot, and enddate that are present in the data. I
 #think. Really hoping this isn't just a roundabout way to expand grid...
 
-frame <- unique(ten_one_100_veg_survey[,c("decimalLatitude","decimalLongitude","plotID","subplotID","endDate")])
+frame <- unique(ten_one_100_veg_survey[,c("decimalLatitude","decimalLongitude","plotID","mid_sub","endDate")])
 frame$PA <- 0
 
 #I made this little exists variable to make sure we hadn't generated any combinations of latlong, plot, subplot, and date
@@ -149,13 +157,14 @@ ros <- nrow(frame)
 
 genus_PA_list <- list()
 
+
+
 for(genus in genera){
   just_current <- ten_one_100_veg_survey[ten_one_100_veg_survey$genus==genus,]
   temp <- frame
   for(row in 1:ros){
-    matches <-  which(just_current$plotID==temp[row,]$plotID&just_current$subplotID==temp[row,]$subplotID&
+    matches <-  which(just_current$plotID==temp[row,]$plotID&just_current$mid_sub==temp[row,]$mid_sub&
                         just_current$endDate==temp[row,]$endDate)
-    
     num <- length(matches)
     if(num!=0){
       temp[row,]$PA <- 1
@@ -186,8 +195,8 @@ fire_gg
 
 
 
-neon_prairie_fire$top_sub <- gsub("([0-9]{2}).[0-9].[0-9]{1,2}","\\1",neon_prairie_fire$subplotID)
-neon_prairie_fire$mid_sub <- gsub("[0-9]{2}.([0-9]).[0-9]{1,2}","\\1",neon_prairie_fire$subplotID)
+neon_prairie_fire$top_sub <- gsub("([0-9]{2}).[0-9]","\\1",neon_prairie_fire$mid_sub)
+neon_prairie_fire$middle <- gsub("[0-9]{2}.([0-9])","\\1",neon_prairie_fire$mid_sub)
 
 
 
@@ -203,70 +212,70 @@ ros2 <- nrow(transformed_prairie_fire)
 for(j in 1:ros2){
   if(transformed_prairie_fire$top_sub[j]==31){
     
-    if(transformed_prairie_fire$mid_sub[j]>4){
-      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-5
-       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-5
-    }else if(transformed_prairie_fire$mid_sub[j]==1){
+    if(transformed_prairie_fire$middle[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if(transformed_prairie_fire$middle[j]==1){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
-    }else if (transformed_prairie_fire$mid_sub[j]==2){
+    }else if (transformed_prairie_fire$middle[j]==2){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude
-    }else if (transformed_prairie_fire$mid_sub[j]==3){
+    }else if (transformed_prairie_fire$middle[j]==3){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
-     }else if(transformed_prairie_fire$mid_sub[j]==4){
+     }else if(transformed_prairie_fire$middle[j]==4){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
        transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
     }
   }else if (transformed_prairie_fire$top_sub[j]==32){
-    if(transformed_prairie_fire$mid_sub[j]>4){
-      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-5
-      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+5
-    }else if(transformed_prairie_fire$mid_sub[j]==1){
+    if(transformed_prairie_fire$middle[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if(transformed_prairie_fire$middle[j]==1){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
-    }else if (transformed_prairie_fire$mid_sub[j]==2){
+    }else if (transformed_prairie_fire$middle[j]==2){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]-10
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
-    }else if (transformed_prairie_fire$mid_sub[j]==3){
+    }else if (transformed_prairie_fire$middle[j]==3){
        transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
        transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
-    }else if(transformed_prairie_fire$mid_sub[j]==4){
+    }else if(transformed_prairie_fire$middle[j]==4){
       transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
     }
   }else if(transformed_prairie_fire$top_sub[j]==40){
-    if(transformed_prairie_fire$mid_sub[j]>4){
-      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+5
-      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-5
-    }else if(transformed_prairie_fire$mid_sub[j]==1){
+    if(transformed_prairie_fire$middle[j]>4){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if(transformed_prairie_fire$middle[j]==1){
      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]-10
-    }else if (transformed_prairie_fire$mid_sub[j]==2){
+    }else if (transformed_prairie_fire$middle[j]==2){
      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
-    }else if (transformed_prairie_fire$mid_sub[j]==3){
+    }else if (transformed_prairie_fire$middle[j]==3){
       transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]+10
       transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]-10
-    }else if(transformed_prairie_fire$mid_sub[j]==4){
+    }else if(transformed_prairie_fire$middle[j]==4){
       transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]+10
       transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]
     }
   }else if (transformed_prairie_fire$top_sub[j]==42){
-    if(transformed_prairie_fire$mid_sub[j]>4){
-      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+5
-      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+5
-    }else if(transformed_prairie_fire$mid_sub[j]==1){
+    if(transformed_prairie_fire$middle[j]>4){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
-    }else if (transformed_prairie_fire$mid_sub[j]==2){
+    }else if(transformed_prairie_fire$middle[j]==1){
+      transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]
+      transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]
+    }else if (transformed_prairie_fire$middle[j]==2){
       transformed_prairie_fire$Northing[j]<- transformed_prairie_fire$decimalLatitude[j]
       transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]+10
-    }else if (transformed_prairie_fire$mid_sub[j]==3){
+    }else if (transformed_prairie_fire$middle[j]==3){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+10
       transformed_prairie_fire$Easting[j]<- transformed_prairie_fire$decimalLongitude[j]
-    }else if(transformed_prairie_fire$mid_sub[j]==4){
+    }else if(transformed_prairie_fire$middle[j]==4){
       transformed_prairie_fire$Northing[j] <- transformed_prairie_fire$decimalLatitude[j]+10
       transformed_prairie_fire$Easting[j] <- transformed_prairie_fire$decimalLongitude[j]+10
     }
@@ -276,12 +285,15 @@ for(j in 1:ros2){
 
 
 
+transf_100 <- transformed_prairie_fire
+transf_10 <- transformed_prairie_fire[as.numeric(transformed_prairie_fire$middle)<5,]
+
+
+
 plot(x=transformed_prairie_fire$Easting,y=transformed_prairie_fire$Northing)
 
 
-t <- 1:12
 
-t.m <- t%%2
 
 
 
@@ -294,34 +306,114 @@ mo_18 <- moisture_list[grep("2018",names(moisture_list))]
 mo_19 <- moisture_list[grep("2019",names(moisture_list))]
 
 
-seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
-eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
-nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
+twenty_seven <- append(nit_17,mo_17)
+twenty_eight <- append(nit_18,mo_18)
+twenty_nine <- append(nit_19,mo_19)
+length(twenty_seven)
+# 
+# seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
+# eight_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2018,]
+# nine_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2019,]
+# 
+# 
+# df_all_17 <- data.frame(Easting=seven_prairie_fires$Easting, Northing=seven_prairie_fires$Northing,
+#                         PA=seven_prairie_fires$PA, plot=seven_prairie_fires$plotID,
+#                         subplot=seven_prairie_fires$subplotID,
+#                         year=2017)
+# df_all_18 <- data.frame(Easting=eight_prairie_fires$Easting, Northing=eight_prairie_fires$Northing,
+#                         PA=eight_prairie_fires$PA, plot=eight_prairie_fires$plotID,
+#                         subplot=eight_prairie_fires$subplotID,
+#                         year=2018)
+# df_all_19 <- data.frame(Easting=nine_prairie_fires$Easting, Northing=nine_prairie_fires$Northing,
+#                         PA=nine_prairie_fires$PA, plot=nine_prairie_fires$plotID,
+#                         subplot=nine_prairie_fires$subplotID,
+#                         year=2019)
 
 
-df_all_17 <- data.frame(Easting=seven_prairie_fires$Easting, Northing=seven_prairie_fires$Northing,
-                        PA=seven_prairie_fires$PA, plot=seven_prairie_fires$PA,
-                        subplot=seven_prairie_fires$subplotID,
-                        year=2017)
-df_all_18 <- data.frame(Easting=eight_prairie_fires$Easting, Northing=eight_prairie_fires$Northing,
-                        PA=eight_prairie_fires$PA, plot=eight_prairie_fires$PA,
-                        subplot=eight_prairie_fires$subplotID,
-                        year=2018)
-df_all_19 <- data.frame(Easting=nine_prairie_fires$Easting, Northing=nine_prairie_fires$Northing,
-                        PA=nine_prairie_fires$PA, plot=nine_prairie_fires$PA,
-                        subplot=nine_prairie_fires$subplotID,
-                        year=2019)
+
+trans_10_only_171819 <- transf_10[transf_10$year>2016,]
 
 
-rextract17 <- function(rast){
+big_df <- data.frame(Easting=trans_10_only_171819$Easting, Northing=trans_10_only_171819$Northing,
+                     PA=trans_10_only_171819$PA, plot=trans_10_only_171819$plotID,
+                     subplot=trans_10_only_171819$subplotID, top_sub=trans_10_only_171819$top_sub,mid_sub=trans_10_only_171819$mid_sub,
+                     year=trans_10_only_171819$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0)
+
+
+
+
+nam
+levels(df_all_year$subplot)
+
+
+
+
+
+
+big_row <- nrow(big_df)
+big_df$year
+for(row in 1:big_row){
+  for(i in 9:20){
+    year <- big_df$year[row]
+    if(year==2017){
+      #subtract 8 here because the indices for our yearly raster list is off by 8 relative to column numbers in df
+      big_df[row,i] <- rextract(big_df[row,],twenty_seven[[i-8]])
+    }else if(year==2018){
+      big_df[row,i] <- rextract(big_df[row,],twenty_eight[[i-8]])
+    }else if(year==2019){
+      big_df[row,i] <- rextract(big_df[row,],twenty_nine[[i-8]])
+    }
+  }
+
+}
+
+write.csv(x = big_df, file = "Prairie.Fire.PA.w.all.index.10.m.avg.csv")
+
+rextract <- function(dat,rast){
+  if(dat$mid_sub==1){
+    e <- seq(dat$Easting, dat$Easting+3,by=1)
+    n <- seq(dat$Northing, dat$Northing+3,by=1)
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast, grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }else if(dat$mid_sub==2){
+    e <- seq(dat$Easting-3, dat$Easting,by=1)
+    n <- seq(dat$Northing, dat$Northing+3,by=1)
+
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+    
+  }else if(dat$mid_sub==3){
+    e <- seq(dat$Easting, dat$Easting+3,by=1)
+    n <- seq(dat$Northing-3, dat$Northing,by=1)
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }else if(dat$mid_sub==4){
+    e <- seq(dat$Easting-3, dat$Easting,by=1)
+    n <- seq(dat$Northing-3, dat$Northing,by=1)
+    
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }
+}
+
+
+rextract17_10 <- function(rast){
   thing <- raster::extract(rast, c(seven_prairie_fires$Easting,seven_prairie_fires$Northing))
   return(thing)
 }
-rextract18 <- function(rast){
+rextract18_10 <- function(rast){
   thing <- raster::extract(rast, c(eight_prairie_fires$Easting,eight_prairie_fires$Northing))
   return(thing)
 }
-rextract19 <- function(rast){
+rextract19_10 <- function(rast){
   thing <- raster::extract(rast, c(nine_prairie_fires$Easting,nine_prairie_fires$Northing))
   return(thing)
 }
@@ -334,11 +426,38 @@ mindices_18 <-  data.frame(lapply(mo_18, rextract18))
 mindices_19 <-  data.frame(lapply(mo_19, rextract19))
 
 
-df_all_17 <- cbind(df_all_17,indices_17,mindices_17)
-df_all_18 <- cbind(df_all_18,indices_18, mindices_18)
-df_all_19 <- cbind(df_all_19,indices_19, mindices_19)
+temp_17<- cbind(indices_17,mindices_17)
+temp_18<- cbind(indices_18,mindices_18)
+temp_19<- cbind(indices_19,mindices_19)
+
+nam<- gsub('([A-Z]{3,4}).[0-9]{4}','\\1',names(df_all_17[7:18]))
+
+names(temp_17) <- nam
+names(temp_18) <- nam
+names(temp_19) <- nam
+
+df_all_17 <- cbind(df_all_17,temp_17)
+df_all_18 <- cbind(df_all_18,temp_18)
+df_all_19 <- cbind(df_all_19,temp_19)
+
+names(df_all_17)
+
+
+
+
+df_all_year <- rbind(df_all_17,df_all_18,df_all_19)
+
+
 names(df_all_17)
 library(rstanarm)
+names(df_all_year)
+
+df_all_year$plot
+df_all_year$subplot
+
+year_plot_ARVI_MSI <- stan_glmer(PA~-1+as.numeric(year)+(1|plot)+(plot|subplot)+ARVI+MSI, data=df_all_year,
+                                 family='binomial')
+
 
 year_plot_stan <- stan_glmer(PA ~ 1 + as.numeric(year) + (1|plotID),data=neon_prairie_fire, family=binomial)
 
