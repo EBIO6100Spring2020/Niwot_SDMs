@@ -135,7 +135,7 @@ length(names(no_cover_1m2))
 length(names(ten_full_veg_data))
 ten_one_100_veg_survey<- rbind(ten_full_veg_data,no_cover_1m2)
 
-
+table(ten_one_100_veg_survey$genus)
 
 ten_one_100_veg_survey$mid_sub<- gsub("([0-9]{2}.[0-9]).[0-9]{1,2}","\\1",ten_one_100_veg_survey$subplotID)
 
@@ -174,13 +174,16 @@ for(genus in genera){
 }
 
 
+geum <- genus_PA_list[["Geum"]]
+
+
 neon_prairie_fire <- genus_PA_list[["Castilleja"]]
 
 
 neon_prairie_fire$year <- gsub("([0-9]{4})-.*","\\1",neon_prairie_fire$endDate)
 
 
-
+geum$year <- gsub("([0-9]{4})-.*","\\1",geum$endDate)
 
 
 
@@ -191,6 +194,9 @@ fire_gg<- ggplot(neon_prairie_fire)+geom_point(aes(x=decimalLongitude,y=decimalL
 
 fire_gg
 
+geo_gg <- ggplot(geum)+geom_point(aes(x=decimalLongitude, y=decimalLatitude, color=PA))+
+  facet_wrap(~year)
+geo_gg
 
 
 
@@ -199,15 +205,27 @@ neon_prairie_fire$top_sub <- gsub("([0-9]{2}).[0-9]","\\1",neon_prairie_fire$mid
 neon_prairie_fire$middle <- gsub("[0-9]{2}.([0-9])","\\1",neon_prairie_fire$mid_sub)
 
 
+geum$top_sub <- gsub("([0-9]{2}).[0-9]","\\1",geum$mid_sub)
+geum$middle <- gsub("[0-9]{2}.([0-9])","\\1",geum$mid_sub)
+
 
 spatial_prairie_fire <- SpatialPointsDataFrame(neon_prairie_fire[,2:1],neon_prairie_fire)
 r <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
+
+sp_geo <- SpatialPointsDataFrame(geum[,2:1],geum)
+
 crs(spatial_prairie_fire) <- r
 
+crs(sp_geo) <- r
+
 transformed_prairie_fire <- spTransform(spatial_prairie_fire,crs(nitro_list[[1]]))
+tr_geo <- spTransform(sp_geo, crs(nitro_list[[1]]))
+
 ros2 <- nrow(transformed_prairie_fire)
 
+
+geo_row <- nrow(tr_geo)
 
 for(j in 1:ros2){
   if(transformed_prairie_fire$top_sub[j]==31){
@@ -283,12 +301,86 @@ for(j in 1:ros2){
   
 }
 
+for(j in 1:geo_row){
+  if(tr_geo$top_sub[j]==31){
+    
+    if(tr_geo$middle[j]>4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==1){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]-10
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]-10
+    }else if (tr_geo$middle[j]==2){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]-10
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude
+    }else if (tr_geo$middle[j]==3){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]-10
+    }else if(tr_geo$middle[j]==4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }
+  }else if (tr_geo$top_sub[j]==32){
+    if(tr_geo$middle[j]>4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==1){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]-10
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if (tr_geo$middle[j]==2){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]-10
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]+10
+    }else if (tr_geo$middle[j]==3){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==4){
+      tr_geo$Northing[j]<- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]+10
+    }
+  }else if(tr_geo$top_sub[j]==40){
+    if(tr_geo$middle[j]>4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==1){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]-10
+    }else if (tr_geo$middle[j]==2){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if (tr_geo$middle[j]==3){
+      tr_geo$Northing[j]<- tr_geo$decimalLatitude[j]+10
+      tr_geo$Easting[j]<- tr_geo$decimalLongitude[j]-10
+    }else if(tr_geo$middle[j]==4){
+      tr_geo$Northing[j]<- tr_geo$decimalLatitude[j]+10
+      tr_geo$Easting[j]<- tr_geo$decimalLongitude[j]
+    }
+  }else if (tr_geo$top_sub[j]==42){
+    if(tr_geo$middle[j]>4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==1){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
+    }else if (tr_geo$middle[j]==2){
+      tr_geo$Northing[j]<- tr_geo$decimalLatitude[j]
+      tr_geo$Easting[j]<- tr_geo$decimalLongitude[j]+10
+    }else if (tr_geo$middle[j]==3){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]+10
+      tr_geo$Easting[j]<- tr_geo$decimalLongitude[j]
+    }else if(tr_geo$middle[j]==4){
+      tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]+10
+      tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]+10
+    }
+  }
+  
+}
 
 
 transf_100 <- transformed_prairie_fire
 transf_10 <- transformed_prairie_fire[as.numeric(transformed_prairie_fire$middle)<5,]
 
-
+geo_100 <- tr_geo
+geo_10 <- tr_geo[as.numeric(tr_geo$middle)<5,]
 
 plot(x=transformed_prairie_fire$Easting,y=transformed_prairie_fire$Northing)
 
@@ -333,12 +425,20 @@ length(twenty_seven)
 
 trans_10_only_171819 <- transf_10[transf_10$year>2016,]
 
+geo_tr_17_to_19 <- geo_10[geo_10$year>2016,]
+
 
 big_df <- data.frame(Easting=trans_10_only_171819$Easting, Northing=trans_10_only_171819$Northing,
                      PA=trans_10_only_171819$PA, plot=trans_10_only_171819$plotID,
                      subplot=trans_10_only_171819$subplotID, top_sub=trans_10_only_171819$top_sub,mid_sub=trans_10_only_171819$mid_sub,
                      year=trans_10_only_171819$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0)
 
+
+
+geum_df <- data.frame(Easting=geo_tr_17_to_19$Easting, Northing=geo_tr_17_to_19$Northing,
+                      PA=geo_tr_17_to_19$PA, plot=geo_tr_17_to_19$plotID, 
+                      top_sub=geo_tr_17_to_19$top_sub,mid_sub=geo_tr_17_to_19$mid_sub, middle=geo_tr_17_to_19$middle,
+                      year=geo_tr_17_to_19$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0)
 
 
 
@@ -367,7 +467,65 @@ for(row in 1:big_row){
 
 }
 
+
+
+
+geo_row <- nrow(geum_df)
+geum_df$year
+for(row in 1:geo_row){
+  for(i in 9:20){
+    year <- geum_df$year[row]
+    if(year==2017){
+      #subtract 8 here because the indices for our yearly raster list is off by 8 relative to column numbers in df
+      geum_df[row,i] <- rextract2(geum_df[row,],twenty_seven[[i-8]])
+    }else if(year==2018){
+      geum_df[row,i] <- rextract2(geum_df[row,],twenty_eight[[i-8]])
+    }else if(year==2019){
+      geum_df[row,i] <- rextract2(geum_df[row,],twenty_nine[[i-8]])
+    }
+  }
+  
+}
+
 write.csv(x = big_df, file = "Prairie.Fire.PA.w.all.index.10.m.avg.csv")
+
+write.csv(x=geum_df, file="Geum.PA.all.ind.10.m.avg.csv")
+
+
+rextract2 <- function(dat,rast){
+  if(dat$middle==1){
+    e <- seq(dat$Easting, dat$Easting+3,by=1)
+    n <- seq(dat$Northing, dat$Northing+3,by=1)
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast, grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }else if(dat$middle==2){
+    e <- seq(dat$Easting-3, dat$Easting,by=1)
+    n <- seq(dat$Northing, dat$Northing+3,by=1)
+    
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+    
+  }else if(dat$middle==3){
+    e <- seq(dat$Easting, dat$Easting+3,by=1)
+    n <- seq(dat$Northing-3, dat$Northing,by=1)
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }else if(dat$middle==4){
+    e <- seq(dat$Easting-3, dat$Easting,by=1)
+    n <- seq(dat$Northing-3, dat$Northing,by=1)
+    
+    grid <- expand.grid(e,n)
+    vals <- raster::extract(rast,grid)
+    avg_val <- mean(vals)
+    return(avg_val)
+  }
+}
 
 rextract <- function(dat,rast){
   if(dat$mid_sub==1){
@@ -418,38 +576,151 @@ rextract19_10 <- function(rast){
   return(thing)
 }
 
-indices_17 <- data.frame(lapply(nit_17, rextract17))
-indices_18 <-  data.frame(lapply(nit_18, rextract18))
-indices_19 <-  data.frame(lapply(nit_19, rextract19))
-mindices_17 <- data.frame(lapply(mo_17, rextract17))
-mindices_18 <-  data.frame(lapply(mo_18, rextract18))
-mindices_19 <-  data.frame(lapply(mo_19, rextract19))
 
-
-temp_17<- cbind(indices_17,mindices_17)
-temp_18<- cbind(indices_18,mindices_18)
-temp_19<- cbind(indices_19,mindices_19)
-
-nam<- gsub('([A-Z]{3,4}).[0-9]{4}','\\1',names(df_all_17[7:18]))
-
-names(temp_17) <- nam
-names(temp_18) <- nam
-names(temp_19) <- nam
-
-df_all_17 <- cbind(df_all_17,temp_17)
-df_all_18 <- cbind(df_all_18,temp_18)
-df_all_19 <- cbind(df_all_19,temp_19)
-
-names(df_all_17)
-
-
-
-
-df_all_year <- rbind(df_all_17,df_all_18,df_all_19)
-
-
-names(df_all_17)
 library(rstanarm)
+
+
+
+
+year_plot_stan <- stan_glmer(PA~-1+as.numeric(year)+(1|plot), data=big_df, family="binomial")
+
+
+g.yr.plot <- stan_glmer(PA~as.numeric(year)+(1|plot), data=geum_df, family="binomial")
+launch_shinystan(g.yr.plot)
+
+
+launch_shinystan(year_plot_stan)
+
+
+
+SAVI_year_plot_stan <- stan_glmer(PA~as.numeric(year)+(1|plot)+SAVI, data=big_df, family="binomial")
+
+library(rsample)
+library(purrr)
+#maybe cross-validate here? Split geum_df 80/20 randomly - make sure to catch enough subplots i guess. then fit to the 80, predict on the
+#20 and see how well it validates.
+
+res <- mc_cv(na.omit(geum_df), prop=0.8,times=25)
+
+
+ARVI_lm <- stan_lmer(ARVI~as.numeric(year)+(1|plot), data = geum_df)
+summary(ARVI_lm)
+
+mod_list <- list()
+mod_list <- map(res$splits,
+    function(x){
+      
+      an <- analysis(x)
+      as <- assessment(x)
+      
+      dat <- as.data.frame(an)
+      mod <- stan_glmer(PA~as.numeric(year)+(1|plot)+ARVI+NDNI, data=dat, family="binomial")
+      preds <- posterior_predict(mod,as, draws=50)
+      preds_avg <- apply(preds,FUN=mean,MARGIN=2)
+      cv_true <- data.frame(true_val=as$PA,pred=preds_avg)
+      return(list(mod,cv_true))
+    }
+    )
+
+
+
+ls_l <- length(mod_list)
+
+
+confusion_calc <- function(model_list){
+  
+ 
+  false_negative <- length(which(model_list[[2]]$true_val==1&model_list[[2]]$pred<0.55))
+  false_positive <- length(which(model_list[[2]]$true_val==0&model_list[[2]]$pred>0.55))
+  total_wrong <- false_negative+false_positive
+  fn_freq <- false_negative/total_wrong
+  fp_freq <- false_positive/total_wrong
+  
+  all_pos_pred <- length(which(model_list[[2]]$pred>0.55))
+  
+  false_pos_prop <- false_positive/all_pos_pred
+  
+  confusion_vec <- c(total_wrong,false_negative, false_positive, fn_freq,fp_freq,false_pos_prop)
+  return(confusion_vec)
+  
+}
+
+
+confusion_frame <- data.frame(total_wrong=rep(NA,ls_l),false_negative=rep(NA,ls_l), false_positive=rep(NA,ls_l), fn_freq=rep(NA,ls_l),
+                              fp_freq=rep(NA,ls_l),proportion_pos_false=rep(NA,ls_l))
+
+for(mod in 1:ls_l){
+  
+  confusion_frame[mod,] <- confusion_calc(mod_list[[mod]])
+  
+}
+
+
+
+hist(confusion_frame$total_wrong,breaks=seq(1,15,by=1))
+barplot(table(confusion_frame$total_wrong))
+hist(confusion_frame$false_negative)
+barplot(table(confusion_frame$false_negative))
+hist(confusion_frame$false_positive)
+barplot(table(confusion_frame$false_positive))
+
+
+hist(confusion_frame$proportion_pos_false,breaks=c(0.05,0.1,0.15,0.2,0.25))
+
+
+mean(confusion_frame$fn_freq)
+mean(confusion_frame$fp_freq)
+
+hist(confusion_frame$proportion_pos_false)
+
+
+nrow(mod_list[[1]][[2]])
+
+length(which(mod_list[[1]][[2]]$true_val!=mod_list[[1]][[2]]$pred))
+#first model wrong 10% of the time on our c val
+
+#here we check just for incorrect predictions
+length(which(mod_list[[2]][[2]]$true_val!=mod_list[[2]][[2]]$pred))
+#and still about the same tbh
+
+
+
+#here we'll look for false negatives- we predict absence but there's actually presence
+length(which(mod_list[[1]][[2]]$true_val==1&mod_list[[1]][[2]]$pred==0))
+#8 here
+length(which(mod_list[[2]][[2]]$true_val==1&mod_list[[2]][[2]]$pred==0))
+#10 here 
+
+#now let's look for false positives - predict presence where we actually have absence
+
+length(which(mod_list[[1]][[2]]$true_val==0&mod_list[[1]][[2]]$pred==1))
+#6 here.
+
+length(which(mod_list[[2]][[2]]$true_val==0&mod_list[[2]][[2]]$pred==1))
+#5 here
+
+# so a pretty consistent tendency to underpredict geum presence - tough to overcome the lack of presence i would guess?
+
+ARVI_NDNI_yrpt_stan <- stan_glmer(PA~as.numeric(year)+(1|plot)+ARVI+NDNI, data=res, family="binomial")
+
+
+prior_summary(ARVI_NDNI_yrpt_stan)
+
+launch_shinystan(ARVI_NDNI_yrpt_stan)
+
+launch_shinystan(SAVI_year_plot_stan)
+
+
+ARVI_year_plot <- stan_glmer(PA~as.numeric(year)+(1|plot)+ARVI+NDNI, data=big_df, family="binomial")
+
+launch_shinystan(SAVI_NDII_year_plot)
+
+
+NDNI_SAVI_MSI_year_plot <- stan_glmer(PA~as.numeric(year)+(1|plot)+SAVI+MSI+NDNI, data=big_df, family="binomial")
+
+
+launch_shinystan(NDNI_SAVI_MSI_year_plot)
+
 names(df_all_year)
 
 df_all_year$plot
@@ -727,8 +998,36 @@ xy <- expand.grid(xs,ys)
 write.csv(xy,"en.combos.txt", row.names = F, col.names = F)
 
 
-if(length(grep("fuck","fuck"))>0){
-  print("yiss")
-}
 
+indices_17 <- data.frame(lapply(nit_17, rextract17))
+indices_18 <-  data.frame(lapply(nit_18, rextract18))
+indices_19 <-  data.frame(lapply(nit_19, rextract19))
+mindices_17 <- data.frame(lapply(mo_17, rextract17))
+mindices_18 <-  data.frame(lapply(mo_18, rextract18))
+mindices_19 <-  data.frame(lapply(mo_19, rextract19))
+
+
+temp_17<- cbind(indices_17,mindices_17)
+temp_18<- cbind(indices_18,mindices_18)
+temp_19<- cbind(indices_19,mindices_19)
+
+nam<- gsub('([A-Z]{3,4}).[0-9]{4}','\\1',names(df_all_17[7:18]))
+
+names(temp_17) <- nam
+names(temp_18) <- nam
+names(temp_19) <- nam
+
+df_all_17 <- cbind(df_all_17,temp_17)
+df_all_18 <- cbind(df_all_18,temp_18)
+df_all_19 <- cbind(df_all_19,temp_19)
+
+names(df_all_17)
+
+
+
+
+df_all_year <- rbind(df_all_17,df_all_18,df_all_19)
+
+
+names(df_all_17)
 
