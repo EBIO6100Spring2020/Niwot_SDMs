@@ -6,6 +6,8 @@ library(dplyr)
 library(ggplot2)
 library(rstanarm)
 library(rstan)
+library(gtools)
+library(rethinking)
 #I've plotted a lot of these using Diane Ebert May's data, but keep in mind
 #there is no temporal overlap between when the majority of this sensor/Lidar data
 #was collected and when Ebert May's sampling took place. Last Ebert May survey was
@@ -599,12 +601,21 @@ library(rsample)
 library(purrr)
 #maybe cross-validate here? Split geum_df 80/20 randomly - make sure to catch enough subplots i guess. then fit to the 80, predict on the
 #20 and see how well it validates.
+test <- geum_df[,9:20]*10
 
-res <- mc_cv(na.omit(geum_df), prop=0.8,times=25)
+names(test) <- paste0(names(test),"_10")
+
+geum_df2 <- cbind(geum_df,test)
+
+spl <- initial_split(na.omit(geum_df2),prop=0.8)
+
+test <- testing(spl)
+
+tr <- training(spl)
+
+res <- mc_cv(tr, prop=0.8,times=25)
 
 
-ARVI_lm <- stan_lmer(ARVI~as.numeric(year)+(1|plot), data = geum_df)
-summary(ARVI_lm)
 
 mod_list <- list()
 mod_list <- map(res$splits,
@@ -614,15 +625,17 @@ mod_list <- map(res$splits,
       as <- assessment(x)
       
       dat <- as.data.frame(an)
-      mod <- stan_glmer(PA~as.numeric(year)+(1|plot)+ARVI+NDNI, data=dat, family="binomial")
+      mod <- stan_glmer(PA~as.numeric(year)+(1|plot)+ARVI_10+NDNI_10, data=dat, family="binomial")
       preds <- posterior_predict(mod,as, draws=50)
       preds_avg <- apply(preds,FUN=mean,MARGIN=2)
       cv_true <- data.frame(true_val=as$PA,pred=preds_avg)
       return(list(mod,cv_true))
     }
-    )
+  )
 
 
+
+launch_shinystan(mod_list[[1]][[1]])
 
 ls_l <- length(mod_list)
 
@@ -640,20 +653,31 @@ confusion_calc <- function(model_list){
   
   false_pos_prop <- false_positive/all_pos_pred
   
-  confusion_vec <- c(total_wrong,false_negative, false_positive, fn_freq,fp_freq,false_pos_prop)
+  confusion_vec <- c(total_wrong,false_negative, false_positive, fn_freq,fp_freq,false_pos_prop, all_pos_pred)
   return(confusion_vec)
   
 }
 
 
+
+par_names <- names(mod_list[[1]][[1]]$coefficients)
+plot(precis(mod_list[[1]][[1]], depth=1, pars=par_names[1:10]))
+
+precis(mod_list[[1]][[1]], depth=1, pars=par_names[1:10])
+
 confusion_frame <- data.frame(total_wrong=rep(NA,ls_l),false_negative=rep(NA,ls_l), false_positive=rep(NA,ls_l), fn_freq=rep(NA,ls_l),
-                              fp_freq=rep(NA,ls_l),proportion_pos_false=rep(NA,ls_l))
+                              fp_freq=rep(NA,ls_l),proportion_pos_false=rep(NA,ls_l), pos_pred=rep(NA,ls_l))
 
 for(mod in 1:ls_l){
   
   confusion_frame[mod,] <- confusion_calc(mod_list[[mod]])
   
 }
+
+
+
+
+
 
 
 
@@ -665,8 +689,11 @@ hist(confusion_frame$false_positive)
 barplot(table(confusion_frame$false_positive))
 
 
-hist(confusion_frame$proportion_pos_false,breaks=c(0.05,0.1,0.15,0.2,0.25))
+table(confusion_frame$pos_pred)
 
+
+hist(confusion_frame$proportion_pos_false,breaks=c(0.05,0.1,0.15,0.2,0.25))
+hist(confusion_frame$proportion_pos_false)
 
 mean(confusion_frame$fn_freq)
 mean(confusion_frame$fp_freq)
