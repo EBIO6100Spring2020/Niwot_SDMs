@@ -356,7 +356,7 @@ for(j in 1:geo_row){
       tr_geo$Northing[j]<- tr_geo$decimalLatitude[j]+10
       tr_geo$Easting[j]<- tr_geo$decimalLongitude[j]
     }
-  }else if (tr_geo$top_sub[j]==42){
+  }else if (tr_geo$top_sub[j]==41){
     if(tr_geo$middle[j]>4){
       tr_geo$Northing[j] <- tr_geo$decimalLatitude[j]
       tr_geo$Easting[j] <- tr_geo$decimalLongitude[j]
