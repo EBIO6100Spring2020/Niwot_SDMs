@@ -61,16 +61,22 @@ mod_list <- purrr::map(m.c.c.v$splits,
                 }
 )
 
+
+
+
+mod_list[[1]]
+
+
 confusion_calc <- function(model_list){
   
   
-  false_negative <- length(which(model_list[[2]]$true_val==1&model_list[[2]]$pred<0.75))
-  false_positive <- length(which(model_list[[2]]$true_val==0&model_list[[2]]$pred>0.75))
+  false_negative <- length(which(model_list[[2]]$true_val==1&model_list[[2]]$pred<0.6))
+  false_positive <- length(which(model_list[[2]]$true_val==0&model_list[[2]]$pred>0.6))
   total_wrong <- false_negative+false_positive
   fn_freq <- false_negative/total_wrong
   fp_freq <- false_positive/total_wrong
   
-  all_pos_pred <- length(which(model_list[[2]]$pred>0.75))
+  all_pos_pred <- length(which(model_list[[2]]$pred>0.6))
   
   false_pos_prop <- false_positive/all_pos_pred
   
@@ -87,6 +93,12 @@ for(mod in 1:ls_l){
   confusion_frame[mod,] <- confusion_calc(mod_list[[mod]])
   
 }
+fr <- mod_list[[1]][[1]]$coefficients
+some <- names(fr)
+
+
+confusion_frame
+
 
 #now we're mostly predicting negatives where there should be positives it looks like?
 barplot(table(confusion_frame$total_wrong))
@@ -112,8 +124,54 @@ summary(plot.yr.mod)
 
 geum_df$year_low <- geum_df$year-2016
 
+
+
+######### This is the worthwhile model ##########
+
 MSI.NDNI.year.plot <- stan_glmer(PA~year_low+(1|plot)+MSI+NDNI,data=geum_df, family="binomial")
 summary(MSI.NDNI.year.plot)
+
+
+
+
+#So how do we want to generate our simulated data? I suppose I could fit a model with year explaining MSI and NDNI, then
+#predict forward for 2020, 2021, 2022? Then plug those in. Would need a plot though. So a function of year and plot, then I can
+#give it a year and a plot, one for each subplot i guess? then go for it overall.
+
+
+just_ndni <- lm(NDNI~year_low+plot,data = geum_df)
+just_msi <- lm(MSI~year_low+plot,data=geum_df)
+
+summary(just_ndni)
+
+
+
+plots <- levels(geum_df$plot)
+
+plots <- plots[-1]
+
+years <- c(4,5,6)
+
+future_frame <- expand.grid(years,plot)
+names(future_frame) <- c("plot","year_low")
+future_frame$plot <- as.factor(future_frame$plot)
+future_frame$year_low <- as.numeric(future_frame$year_low)
+future_frame$year_low <- future_frame$year_low+3
+
+future_frame$NDNI <- stats::predict(just_ndni,newdata=future_frame[,1:2])
+future_frame$MSI <-  stats::predict(just_msi,newdata=future_frame[,1:2])
+
+avg_preds <- function(dat,model){
+  preds <- posterior_predict(model,dat,draws=100)
+  avg.preds <- apply(preds,MARGIN=2,FUN=mean)
+  return(avg.preds)
+}
+
+#some very basic predictions here. not wild about this, as we don't have subplot specific 
+future_frame$PA <- avg_preds(future_frame,MSI.NDNI.year.plot)
+
+
+
 
 plot(geum_df$NDNI)
 plot(geum_df$MSI)
