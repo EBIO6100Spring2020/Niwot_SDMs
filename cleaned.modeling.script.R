@@ -128,14 +128,145 @@ geum_df$year_low <- geum_df$year-2016
 
 ######### This is the worthwhile model ##########
 
-MSI.NDNI.year.plot <- stan_glmer(PA~year_low+(1|plot)+MSI+NDNI,data=geum_df, family="binomial")
+MSI.NDNI.year.plot <- stan_glmer(PA~year_low+(1|plot)+MSI,data=geum_df, family="binomial")
 summary(MSI.NDNI.year.plot)
 
+int_mod<- map2stan(
+  alist(
+    PA ~ dbinom(1,p),
+    logit(p) <- cept,
+      cept~dnorm(0,3)
+  ), data=geum_df, chains=4
+)
+
+mod_year <- map2stan(
+  alist(
+    PA ~ dbinom(1,p),
+    logit(p) <- cept+b_year*year_low,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5)
+  ), data=geum_df, chains=4
+)
+
+mod_plt_year <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains = 4, iter=4000
+)
+msi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_MSI*MSI,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    b_MSI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains=4,iter=3000
+)
+
+ndni_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_NDNI*NDNI,
+    b_year~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_df, chains=4, iter=3000
+  )
+#ndni_mod
+
+wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_year~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_df, chains=4, iter=3000
+)
 
 
+wbi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_wbi*WBI,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    b_wbi~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains=4, iter=3000
+)
+summary(wbi_mod)
+
+
+full_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_MSI*MSI+b_NDNI*NDNI,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    b_MSI~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains=4, iter=3000
+)
+#full_mod
+
+
+# mod_plt_year
+# summary(mod_plt_year)
+
+comparison <- compare(int_mod,mod_year, mod_plt_year, msi_mod,ndni_mod,full_mod,wbi_mod)
+comparison
+
+#lol amazing, so now no predictors at all. Just plot and year. Love to see it.
+#alright, so i fiddled with the prior for the intercept variance, made it a cauchy (0,1) for
+#all plot models. That bumped the wbi model up to tie in first, but still not all that 
+#convincing of a model to say that wbi has an impact. Like literally same WAIC, very slight
+#improvement to the SE, then same everything else and tied in the Aikaike weight @ 0.22. 
+plot(comparison)
+plot(coeftab(int_mod,mod_year, mod_plt_year, msi_mod,ndni_mod,full_mod,wbi_mod),
+     cex.axis=0.01)
+
+cor(geum_df[,c(4,10:21)])
+
+coeftab_plot(int_mod)
+
+
+
+
+
+
+WAIC(mod_plt_year)
+WAIC(mod)
+
+loo_plt_yr <- rstanarm::loo(plot.yr.mod)
+loo_w_indices <- rstanarm::loo(MSI.NDNI.year.plot)
+l_list <- list(loo_plt_yr,loo_w_indices)
+m_list <-stanreg_list(plot.yr.mod,MSI.NDNI.year.plot)
+loo_model_weights(l_list)
 
 #So how do we want to generate our simulated data? I suppose I could fit a model with year explaining MSI and NDNI, then
-#predict forward for 2020, 2021, 2022? Then plug those in. Would need a plot though. So a function of year and plot, then I can
+#predict forward for 2020, 2021, 2022? Then plug those in. Would need a plotp though. So a function of year and plot, then I can
 #give it a year and a plot, one for each subplot i guess? then go for it overall.
 
 
