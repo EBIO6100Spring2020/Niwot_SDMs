@@ -1,5 +1,7 @@
 #Neon Models
 
+
+
 libs <- c("rstan", "rstanarm", "rethinking", "rsample","purrr","stringr","dplyr","ggplot2")
 
 loaded_reqs <- lapply(libs,require, character.only=T)
@@ -14,6 +16,11 @@ geum_df <- read.csv("Geum.PA.all.ind.10.m.avg.csv",header = T)
 #here I'm gonna work just with rstanarm, but then i'll use mcelreath's rethinking approach as well and see how the models differ.
 
 geum_df <- na.omit(geum_df)
+
+geum_df$year_low <- geum_df$year-2016
+names(geum_df)
+
+
 
 #quick correlation for presence/absence of geum, along with all of our various moisture and nitrogen indices
 cor(geum_df[,c(4,10:21)])
@@ -122,7 +129,6 @@ summary(plot.yr.mod)
 #NDNI is a nitrogen index that should capture relative nitrogen content of vegetative cover. So these are proxies for nitrogen
 #and moisture stress really, as both are based on reflectance of vegetative cover.
 
-geum_df$year_low <- geum_df$year-2016
 
 
 
@@ -154,6 +160,34 @@ mod_plt_year <- map2stan(
     logit(p) <- cept+a[plot]+b_year*year_low,
     cept~dnorm(0,3),
     b_year~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains = 4, iter=4000
+)
+
+
+pc1_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_pc1*PC1,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    b_pc1~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_df, chains = 4, iter=4000
+)
+
+pc1_pc2_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_year*year_low+b_pc1*PC1+b_pc2*PC2,
+    cept~dnorm(0,3),
+    b_year~dnorm(0,1.5),
+    b_pc1~dnorm(0,1.5),
+    b_pc2~dnorm(0,1.5),
     a_mean~dnorm(0,1.5),
     a_var~dcauchy(0,1),
     a[plot]~dnorm(a_mean,a_var)
@@ -201,6 +235,21 @@ wbi_ndni <- map2stan(
 )
 
 
+
+no_plot_wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+b_year*year_low+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_year~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    cept~dnorm(0,3)
+  ), data=geum_df, chains=4, iter=3000
+)
+
+plot(precis(no_plot_wbi_ndni))
+
+
 wbi_mod <- map2stan(
   alist(
     PA~dbinom(1,p),
@@ -235,7 +284,8 @@ full_mod <- map2stan(
 # mod_plt_year
 # summary(mod_plt_year)
 
-comparison <- compare(int_mod,mod_year, mod_plt_year, msi_mod,ndni_mod,full_mod,wbi_mod)
+comparison <- compare(int_mod,mod_year, mod_plt_year, msi_mod,ndni_mod,full_mod,wbi_mod,
+                      pc1_stan,pc1_pc2_stan, no_plot_wbi_ndni)
 comparison
 
 #lol amazing, so now no predictors at all. Just plot and year. Love to see it.
@@ -251,10 +301,11 @@ cor(geum_df[,c(4,10:21)])
 
 coeftab_plot(int_mod)
 
+plot(precis(ndni_mod))
+plot(precis(wbi_mod))
 
 
-
-
+plot(precis(pc1_pc2_stan))
 
 WAIC(mod_plt_year)
 WAIC(mod)
@@ -323,4 +374,17 @@ nrow(geum_df[dup_ind,])
 f1_plot <- geum_df[geum_df$top_sub==41,]
 
 table(f1_plot$ARVI)
+
+
+
+pca <- prcomp(geum_df[,c(10:21)])
+summary(pca)
+
+rotate_mat <- pca$rotation
+
+pcr_test <- pca$x
+
+
+geum_df$PC1 <- pcr_test[,1]
+geum_df$PC2 <- pcr_test[,2]
 
