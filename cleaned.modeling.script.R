@@ -388,3 +388,479 @@ pcr_test <- pca$x
 geum_df$PC1 <- pcr_test[,1]
 geum_df$PC2 <- pcr_test[,2]
 
+
+
+#sep by year models!
+
+geum_17 <- geum_df[geum_df$year==2017,]
+geum_18 <- geum_df[geum_df$year==2018,]
+geum_19 <- geum_df[geum_df$year==2019,]
+
+pc17 <- prcomp(geum_17[,c(10:23)])
+pc18 <- prcomp(geum_18[,c(10:23)])
+pc19 <- prcomp(geum_19[,c(10:23)])
+
+geum_17$PC1 <- pc17$x[,1]
+geum_17$PC2 <- pc17$x[,2]
+
+geum_18$PC1 <- pc18$x[,1]
+geum_18$PC2 <- pc18$x[,2]
+
+geum_19$PC1 <- pc19$x[,1]
+geum_19$PC2 <- pc19$x[,2]
+
+
+#### 2017 models ####
+
+int_mod<- map2stan(
+  alist(
+    PA ~ dbinom(1,p),
+    logit(p) <- cept,
+    cept~dnorm(0,3)
+  ), data=geum_17, chains=4
+)
+
+
+mod_plt<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot],
+    cept~dnorm(0,3),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains = 4, iter=4000
+)
+
+mod_plt_slp_asp<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_slope*slope+b_aspect*aspect,
+    cept~dnorm(0,3),
+    b_slope~dnorm(0,1.5),
+    b_aspect~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains = 4, iter=4000
+)
+
+
+
+pc1_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains = 4, iter=4000
+)
+
+pc1_pc2_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1+b_pc2*PC2,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    b_pc2~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains = 4, iter=4000
+)
+msi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains=4,iter=3000
+)
+
+ndni_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI,
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_17, chains=4, iter=3000
+)
+#ndni_mod
+
+wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_17, chains=4, iter=3000
+)
+
+
+
+no_plot_wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    cept~dnorm(0,3)
+  ), data=geum_17, chains=4, iter=3000
+)
+
+plot(precis(no_plot_wbi_ndni))
+
+
+wbi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_wbi*WBI,
+    cept~dnorm(0,3),
+    b_wbi~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains=4, iter=3000
+)
+summary(wbi_mod)
+
+
+full_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI+b_NDNI*NDNI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_17, chains=4, iter=3000
+)
+#full_mod
+
+
+# mod_plt_year
+# summary(mod_plt_year)
+
+comparison17 <- compare(int_mod, mod_plt, mod_plt_slp_asp, msi_mod,ndni_mod,full_mod,wbi_mod,
+                      pc1_stan,pc1_pc2_stan, no_plot_wbi_ndni)
+comparison17
+
+
+##### 2018 models #####
+
+
+
+
+
+int_mod<- map2stan(
+  alist(
+    PA ~ dbinom(1,p),
+    logit(p) <- cept,
+    cept~dnorm(0,3)
+  ), data=geum_18, chains=4
+)
+
+
+mod_plt<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot],
+    cept~dnorm(0,3),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains = 4, iter=4000
+)
+
+mod_plt_slp_asp<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_slope*slope+b_aspect*aspect,
+    cept~dnorm(0,3),
+    b_slope~dnorm(0,1.5),
+    b_aspect~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains = 4, iter=4000
+)
+
+
+
+pc1_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains = 4, iter=4000
+)
+
+pc1_pc2_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1+b_pc2*PC2,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    b_pc2~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains = 4, iter=4000
+)
+msi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains=4,iter=3000
+)
+
+ndni_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI,
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_18, chains=4, iter=3000
+)
+#ndni_mod
+
+wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_18, chains=4, iter=3000
+)
+
+
+
+no_plot_wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    cept~dnorm(0,3)
+  ), data=geum_18, chains=4, iter=3000
+)
+
+plot(precis(no_plot_wbi_ndni))
+
+
+wbi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_wbi*WBI,
+    cept~dnorm(0,3),
+    b_wbi~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains=4, iter=3000
+)
+summary(wbi_mod)
+
+
+full_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI+b_NDNI*NDNI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_18, chains=4, iter=3000
+)
+
+
+
+comparison18 <- compare(int_mod, mod_plt, mod_plt_slp_asp, msi_mod,ndni_mod,full_mod,wbi_mod,
+                        pc1_stan,pc1_pc2_stan, no_plot_wbi_ndni)
+comparison18
+
+
+#### 2019 ####
+
+
+int_mod<- map2stan(
+  alist(
+    PA ~ dbinom(1,p),
+    logit(p) <- cept,
+    cept~dnorm(0,3)
+  ), data=geum_19, chains=4
+)
+
+
+mod_plt<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot],
+    cept~dnorm(0,3),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains = 4, iter=4000
+)
+
+mod_plt_slp_asp<- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_slope*slope+b_aspect*aspect,
+    cept~dnorm(0,3),
+    b_slope~dnorm(0,1.5),
+    b_aspect~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains = 4, iter=4000
+)
+
+
+
+pc1_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains = 4, iter=4000
+)
+
+pc1_pc2_stan <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_pc1*PC1+b_pc2*PC2,
+    cept~dnorm(0,3),
+    b_pc1~dnorm(0,1.5),
+    b_pc2~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains = 4, iter=4000
+)
+msi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains=4,iter=3000
+)
+
+ndni_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI,
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_19, chains=4, iter=3000
+)
+#ndni_mod
+
+wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var),
+    cept~dnorm(0,3)
+  ), data=geum_19, chains=4, iter=3000
+)
+
+
+
+no_plot_wbi_ndni <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+b_NDNI*NDNI+b_wbi*WBI,
+    b_wbi~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    cept~dnorm(0,3)
+  ), data=geum_19, chains=4, iter=3000
+)
+
+plot(precis(no_plot_wbi_ndni))
+
+
+wbi_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_wbi*WBI,
+    cept~dnorm(0,3),
+    b_wbi~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains=4, iter=3000
+)
+summary(wbi_mod)
+
+
+full_mod <- map2stan(
+  alist(
+    PA~dbinom(1,p),
+    logit(p) <- cept+a[plot]+b_MSI*MSI+b_NDNI*NDNI,
+    cept~dnorm(0,3),
+    b_MSI~dnorm(0,1.5),
+    b_NDNI~dnorm(0,1.5),
+    a_mean~dnorm(0,1.5),
+    a_var~dcauchy(0,1),
+    a[plot]~dnorm(a_mean,a_var)
+  ), data=geum_19, chains=4, iter=3000
+)
+
+
+
+comparison19 <- compare(int_mod, mod_plt, mod_plt_slp_asp, msi_mod,ndni_mod,full_mod,wbi_mod,
+                        pc1_stan,pc1_pc2_stan, no_plot_wbi_ndni)
+
+comparison17
+comparison18
+comparison19
+

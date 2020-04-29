@@ -403,6 +403,18 @@ mo_19 <- moisture_list[grep("2019",names(moisture_list))]
 twenty_seven <- append(nit_17,mo_17)
 twenty_eight <- append(nit_18,mo_18)
 twenty_nine <- append(nit_19,mo_19)
+
+#adding slppe and aspect to each year. These obviously don't change across years and
+#so we need to be sure to 
+twenty_seven <- append(twenty_seven,slope)
+twenty_eight <- append(twenty_eight,slope)
+twenty_nine <- append(twenty_nine,slope)
+
+twenty_seven <- append(twenty_seven,aspect)
+twenty_eight <- append(twenty_eight,aspect)
+twenty_nine <- append(twenty_nine,aspect)
+
+
 length(twenty_seven)
 # 
 # seven_prairie_fires <- transformed_prairie_fire[transformed_prairie_fire$year==2017,]
@@ -433,14 +445,16 @@ geo_tr_17_to_19 <- geo_10[geo_10$year>2016,]
 big_df <- data.frame(Easting=trans_10_only_171819$Easting, Northing=trans_10_only_171819$Northing,
                      PA=trans_10_only_171819$PA, plot=trans_10_only_171819$plotID,
                      subplot=trans_10_only_171819$subplotID, top_sub=trans_10_only_171819$top_sub,mid_sub=trans_10_only_171819$mid_sub,
-                     year=trans_10_only_171819$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0)
+                     year=trans_10_only_171819$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0,
+                     slope=0, aspect=0)
 
 
 
 geum_df <- data.frame(Easting=geo_tr_17_to_19$Easting, Northing=geo_tr_17_to_19$Northing,
                       PA=geo_tr_17_to_19$PA, plot=geo_tr_17_to_19$plotID, 
                       top_sub=geo_tr_17_to_19$top_sub,mid_sub=geo_tr_17_to_19$mid_sub, middle=geo_tr_17_to_19$middle,
-                      year=geo_tr_17_to_19$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0)
+                      year=geo_tr_17_to_19$year,ARVI=0, EVI=0, NDLI=0, NDNI=0, NDVI=0, PRI=0,SAVI=0,NDII=0,NDWI=0,NMDI=0,MSI=0,WBI=0,
+                      slope=0, aspect=0)
 
 
 
@@ -475,7 +489,7 @@ for(row in 1:big_row){
 geo_row <- nrow(geum_df)
 geum_df$year
 for(row in 1:geo_row){
-  for(i in 9:20){
+  for(i in 9:22){
     year <- geum_df$year[row]
     if(year==2017){
       #subtract 8 here because the indices for our yearly raster list is off by 8 relative to column numbers in df
