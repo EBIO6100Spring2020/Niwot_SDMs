@@ -864,3 +864,46 @@ comparison17
 comparison18
 comparison19
 
+
+
+
+##### This part won't always work #######
+
+#from a paper on maxent: "In a Bayesian framework, 
+#Eq. (3) corresponds to a negative log posterior given a Laplace prior."
+#No idea how that relates to us tbh.
+library(maxnet)
+library(rJava)
+library(dismo)
+system.file("java",package="dismo")
+stack17 <- stack(twenty_seven[1:12])
+stack18 <- stack(twenty_eight[1:12])
+stack19 <- stack(twenty_nine[1:12])
+
+just_pres <- geum_df[geum_df$PA==1,]
+pres_17 <- just_pres[just_pres$year==2017,]
+pres_EN <- pres_17[,c(2,3)]
+
+ent_geum <- maxent(stack17,p=pres_EN)
+response(ent_geum, expand=0)
+simple_max_map <- predict(stack17, ent_geum)
+back.xy <- randomPoints(stack17,p=pres_EN,n=2000)
+#include 2000 background points
+ent_geum_back <- maxent(stack17,p=pres_EN,a=back.xy)
+back_map <- predict(stack17, ent_geum_back)
+response(ent_geum_back, expand=0)
+plot(back_map)
+plot(simple_max_map)
+
+
+mod_plt_ext <- mod_plt@stanfit
+
+predictions <- raster::predict(stack18,mod_plt, fun=sim2)
+
+
+sim2 <- function(...){
+  rethinking::sim(...,n=5, na.rm=T)
+}
+
+
+
