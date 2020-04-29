@@ -896,14 +896,59 @@ plot(back_map)
 plot(simple_max_map)
 
 
+pres_18 <- just_pres[just_pres$year==2018,]
+EN_18 <- pres_18[,c(2,3)]
+back_18 <- randomPoints(stack18,p=EN_18,n=2000)
+
+pres_19 <- just_pres[just_pres$year==2019,]
+EN_19 <- pres_19[,c(2,3)]
+back_19 <- randomPoints(stack19,p=EN_19,n=2000)
+
+ent_geum_back_18 <- maxent(stack18,p=EN_18,a=back_18)
+back_map_18 <- predict(stack18, ent_geum_back_18)
+resp18 <- response(ent_geum_back_18, expand=0)
+
+ent_geum_back_19 <- maxent(stack19,p=EN_19,a=back_19)
+back_map_19 <- predict(stack19, ent_geum_back_19)
+resp_19 <- response(ent_geum_back_19, expand=0)
+
+plot(back_map)
+plot(back_map_18)
+plot(back_map_19)
+
+resp_18
+resp_19
+
+
 mod_plt_ext <- mod_plt@stanfit
 
 predictions <- raster::predict(stack18,mod_plt, fun=sim2)
 
 
+
+
 sim2 <- function(...){
   rethinking::sim(...,n=5, na.rm=T)
 }
+
+
+raster::writeRaster(stack17,"2017.stack.raster")
+raster::writeRaster(stack18,"2018.stack.raster")
+raster::writeRaster(stack19,"2019.stack.raster")
+
+
+raster::stackSave(stack18, "2018.stack")
+
+stack217 <- raster("2017.stack.gri")
+
+
+
+
+plot(stack217)
+
+
+
+
 
 
 
