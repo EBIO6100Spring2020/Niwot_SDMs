@@ -3,7 +3,7 @@
 
 setwd("~/Desktop/Project/Niwot_SDM/Niwot_SDMs/")
 libs <- c("rstan", "rstanarm", "rethinking", "rsample","purrr","stringr","dplyr","ggplot2",
-          "raster", "maxnet", "dismo")
+          "raster", "maxnet", "dismo", "rjava")
 
 loaded_reqs <- lapply(libs,require, character.only=T)
 
@@ -170,7 +170,7 @@ comparison_all
 all_year_list <- list(int_mod_year, mod_plt_year,mod_plt_elev_year, pc1_stan,
                       pc1_pc2_stan, pc1_pc2_pc3)
 
-saveRDS(all_year_list, "models_all_year")
+saveRDS(all_year_list, "PC_models_all_year.RDS")
 
 plot(precis(mod_plt_elev_year))
 
@@ -334,7 +334,7 @@ pc_17_compar
 mod_17_list <- list(int_mod_17, mod_plt_17, mod_plt_elev_year_17,
                     pc1_incl_el_exp_17, pc1_pc2_incl_el_exp_17, pc1_pc2_pc3_el_exp_17)
 
-saveRDS(mod_17_list,"2017_models_pca")
+saveRDS(mod_17_list,"2017_models_pca.RDS")
 
 pc_17_compar
 
@@ -574,10 +574,16 @@ back_map_19 <- predict(stack19, ent_geum_back_19)
 
 
 map_list <- list(back_map, back_map_18, back_map_19)
+ent_list <- list(ent_geum_back, ent_geum_back_18,ent_geum_back_19)
+saveRDS(ent_list, "max_ent_models_all_years.RDS")
 
+saveRDS(map_list, "max_ent_maps_all_years.RDS")
 
 maxent_list <- list(ent_geum_back, ent_geum_back_18, ent_geum_back_19)
 
+ent_geum_back@results
+
+ent_geum_back@lambdas
 
 resp_18
 resp_19
